@@ -17,17 +17,57 @@ Replace this paragraph with your own summary of what your version does.
 
 ## How The System Works
 
-Explain your design in plain language.
+Real-world systems like Spotify and YouTube mix collaborative filtering and content-based filtering. Collaborative filtering learns from behavior such as likes, skips, replays, playlist adds, and listening history across many users. Content-based filtering looks at the song itself, using features like genre, mood, energy, tempo_bpm, and danceability. My simulator focuses on content-based filtering because the catalog is small and I want a scoring rule that is easy to explain.
 
-Some prompts to answer:
+My `Song` objects use these features: `genre`, `mood`, `energy`, `tempo_bpm`, and `danceability`. My `UserProfile` stores `favorite_genre`, `favorite_mood`, and `target_energy`. The recommender will score each song with a simple algorithm recipe: +2.0 points for a genre match, +1.0 point for a mood match, and extra points when the song’s energy is close to the user’s target energy. If I want to go a little deeper, I can also give small bonus points for tempo and danceability when they support the same vibe.
 
-- What features does each `Song` use in your system
-  - For example: genre, mood, energy, tempo
-- What information does your `UserProfile` store
-- How does your `Recommender` compute a score for each song
-- How do you choose which songs to recommend
+This system might over-prioritize genre if I make that weight too strong, which could cause it to miss songs that match the user’s mood and energy better. It may also reflect the tastes of a tiny starter catalog instead of a broad real-world audience.
 
-You can include a simple diagram or bullet list if helpful.
+Data flow:
+
+- Input: user preferences like favorite genre, favorite mood, and target energy
+- Process: the recommender loops through every song in `songs.csv`, scores each one, and compares the score against the others
+- Output: the songs are sorted into a ranked list and the top `k` recommendations are returned
+
+```mermaid
+flowchart LR
+   A[User Prefs<br/>favorite_genre<br/>favorite_mood<br/>target_energy] --> B[Load songs.csv]
+   B --> C[Loop through each song]
+   C --> D[Score song<br/>genre + mood + energy closeness]
+   D --> E[Add score to list]
+   E --> F[Rank all songs by score]
+   F --> G[Return top K recommendations]
+
+   C -. single song path .-> D
+```
+
+Sample CLI output from `python -m src.main`:
+
+```text
+Loaded songs: 10
+
+Top recommendations:
+
+1. Sunrise City by Neon Echo
+   Score: 4.96
+   Reasons: genre match (+2.0); mood match (+1.0); energy closeness (+1.96)
+
+2. Gym Hero by Max Pulse
+   Score: 3.74
+   Reasons: genre match (+2.0); energy closeness (+1.74)
+
+3. Rooftop Lights by Indigo Parade
+   Score: 2.92
+   Reasons: mood match (+1.0); energy closeness (+1.92)
+
+4. Night Drive Loop by Neon Echo
+   Score: 1.90
+   Reasons: energy closeness (+1.90)
+
+5. Storm Runner by Voltline
+   Score: 1.78
+   Reasons: energy closeness (+1.78)
+```
 
 ---
 
