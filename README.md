@@ -21,7 +21,7 @@ Real-world systems like Spotify and YouTube mix collaborative filtering and cont
 
 My `Song` objects use these features: `genre`, `mood`, `energy`, `tempo_bpm`, and `danceability`. My `UserProfile` stores `favorite_genre`, `favorite_mood`, and `target_energy`. The recommender will score each song with a simple algorithm recipe: +2.0 points for a genre match, +1.0 point for a mood match, and extra points when the song’s energy is close to the user’s target energy. If I want to go a little deeper, I can also give small bonus points for tempo and danceability when they support the same vibe.
 
-This system might over-prioritize genre if I make that weight too strong, which could cause it to miss songs that match the user’s mood and energy better. It may also reflect the tastes of a tiny starter catalog instead of a broad real-world audience.
+This system might over-prioritize genre if I make the weight too strong, which could cause it to miss songs that match the user’s mood and energy better.
 
 Data flow:
 
@@ -39,35 +39,110 @@ flowchart LR
    F --> G[Return top K recommendations]
 
    C -. single song path .-> D
-```
+  ```
 
 Sample CLI output from `python -m src.main`:
 
 ```text
 Loaded songs: 10
 
-Top recommendations:
+=== High-Energy Pop ===
 
 1. Sunrise City by Neon Echo
-   Score: 4.96
-   Reasons: genre match (+2.0); mood match (+1.0); energy closeness (+1.96)
+   Score: 5.88
+   Reasons: genre match (+1.0); mood match (+1.0); energy closeness (+3.88)
 
 2. Gym Hero by Max Pulse
-   Score: 3.74
-   Reasons: genre match (+2.0); energy closeness (+1.74)
+   Score: 4.68
+   Reasons: genre match (+1.0); energy closeness (+3.68)
 
 3. Rooftop Lights by Indigo Parade
-   Score: 2.92
-   Reasons: mood match (+1.0); energy closeness (+1.92)
+   Score: 4.64
+   Reasons: mood match (+1.0); energy closeness (+3.64)
 
 4. Night Drive Loop by Neon Echo
-   Score: 1.90
-   Reasons: energy closeness (+1.90)
+   Score: 3.60
+   Reasons: energy closeness (+3.60)
 
 5. Storm Runner by Voltline
-   Score: 1.78
-   Reasons: energy closeness (+1.78)
+   Score: 3.76
+   Reasons: energy closeness (+3.76)
+
+=== Chill Lofi ===
+
+1. Library Rain by Paper Lanterns
+   Score: 6.00
+   Reasons: genre match (+1.0); mood match (+1.0); energy closeness (+4.00)
+
+2. Midnight Coding by LoRoom
+   Score: 5.72
+   Reasons: genre match (+1.0); mood match (+1.0); energy closeness (+3.72)
+
+3. Focus Flow by LoRoom
+   Score: 4.80
+   Reasons: genre match (+1.0); energy closeness (+3.80)
+
+4. Spacewalk Thoughts by Orbit Bloom
+   Score: 4.72
+   Reasons: mood match (+1.0); energy closeness (+3.72)
+
+5. Coffee Shop Stories by Slow Stereo
+   Score: 3.92
+   Reasons: energy closeness (+3.92)
+
+=== Deep Intense Rock ===
+
+1. Storm Runner by Voltline
+   Score: 5.96
+   Reasons: genre match (+1.0); mood match (+1.0); energy closeness (+3.96)
+
+2. Gym Hero by Max Pulse
+   Score: 4.88
+   Reasons: mood match (+1.0); energy closeness (+3.88)
+
+3. Sunrise City by Neon Echo
+   Score: 3.68
+   Reasons: energy closeness (+3.68)
+
+4. Rooftop Lights by Indigo Parade
+   Score: 3.44
+   Reasons: energy closeness (+3.44)
+
+5. Night Drive Loop by Neon Echo
+   Score: 3.40
+   Reasons: energy closeness (+3.40)
+
+=== Conflicting Energy-Sad ===
+
+1. Gym Hero by Max Pulse
+   Score: 4.88
+   Reasons: genre match (+1.0); energy closeness (+3.88)
+
+2. Sunrise City by Neon Echo
+   Score: 4.68
+   Reasons: genre match (+1.0); energy closeness (+3.68)
+
+3. Storm Runner by Voltline
+   Score: 3.96
+   Reasons: energy closeness (+3.96)
+
+4. Rooftop Lights by Indigo Parade
+   Score: 3.44
+   Reasons: energy closeness (+3.44)
+
+5. Night Drive Loop by Neon Echo
+   Score: 3.40
+   Reasons: energy closeness (+3.40)
 ```
+
+Evaluation notes:
+
+- High-Energy Pop: top result was `Sunrise City`
+- Chill Lofi: top result was `Library Rain`
+- Deep Intense Rock: top result was `Storm Runner`
+- Conflicting Energy-Sad: top results were still very energetic songs, which showed that energy can overpower a mood mismatch
+
+This evaluation matched my expectation that genre and mood help separate styles, but it also showed that the energy weight has a strong effect on the final ranking.
 
 ---
 

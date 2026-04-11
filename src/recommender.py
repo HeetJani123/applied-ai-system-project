@@ -1,13 +1,9 @@
-from typing import List, Dict, Tuple, Optional, Any
+from typing import List, Dict, Tuple, Any
 from dataclasses import dataclass
 import csv
 
 
 NUMERIC_FIELDS = {"id", "energy", "tempo_bpm", "valence", "danceability", "acousticness"}
-
-
-def _get_value(song: Dict[str, Any], key: str) -> Any:
-    return song.get(key)
 
 
 def score_song(user_prefs: Dict[str, Any], song: Dict[str, Any]) -> Tuple[float, List[str]]:
@@ -16,8 +12,8 @@ def score_song(user_prefs: Dict[str, Any], song: Dict[str, Any]) -> Tuple[float,
     reasons: List[str] = []
 
     if user_prefs.get("genre") and song.get("genre") == user_prefs.get("genre"):
-        score += 2.0
-        reasons.append("genre match (+2.0)")
+        score += 1.0
+        reasons.append("genre match (+1.0)")
 
     if user_prefs.get("mood") and song.get("mood") == user_prefs.get("mood"):
         score += 1.0
@@ -27,7 +23,7 @@ def score_song(user_prefs: Dict[str, Any], song: Dict[str, Any]) -> Tuple[float,
     song_energy = song.get("energy")
     if target_energy is not None and song_energy is not None:
         energy_similarity = max(0.0, 1.0 - abs(float(song_energy) - float(target_energy)))
-        energy_points = 2.0 * energy_similarity
+        energy_points = 4.0 * energy_similarity
         score += energy_points
         reasons.append(f"energy closeness (+{energy_points:.2f})")
 
@@ -122,15 +118,6 @@ def load_songs(csv_path: str) -> List[Dict]:
 
     print(f"Loaded songs: {len(songs)}")
     return songs
-
-def score_song(user_prefs: Dict, song: Dict) -> Tuple[float, List[str]]:
-    """
-    Scores a single song against user preferences.
-    Required by recommend_songs() and src/main.py
-    """
-    # TODO: Implement scoring logic using your Algorithm Recipe from Phase 2.
-    # Expected return format: (score, reasons)
-    return []
 
 def recommend_songs(user_prefs: Dict, songs: List[Dict], k: int = 5) -> List[Tuple[Dict, float, str]]:
     """Rank songs by score and return the top k recommendations."""

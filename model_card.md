@@ -70,6 +70,8 @@ Prompts:
 - Cases where the system overfits to one preference  
 - Ways the scoring might unintentionally favor some users  
 
+One weakness I found is that the recommender can still over-favor songs that match energy very closely, even when mood is only a partial fit. That means a high-energy song can rise near the top for a user who does not really want that emotional tone. The dataset is also small, so a few repeated genres like pop and lofi have a bigger influence than they would in a real music catalog. Because the score mostly depends on genre, mood, and energy, it ignores lyrics, artist variety, and context like whether someone wants music for studying versus exercising. That creates a simple but noticeable filter bubble around the most common styles in the starter data.
+
 ---
 
 ## 7. Evaluation  
@@ -84,6 +86,8 @@ Prompts:
 - Any simple tests or comparisons you ran  
 
 No need for numeric metrics unless you created some.
+
+I tested four profiles: High-Energy Pop, Chill Lofi, Deep Intense Rock, and a conflicting profile with high energy but a sad mood. The strongest results usually matched my intuition: the pop profile preferred "Sunrise City," the lofi profile preferred "Library Rain," and the intense rock profile preferred "Storm Runner." What surprised me was that the conflicting profile still pushed very energetic songs to the top, even when the mood did not match well. That showed me the energy score can dominate the ranking when the target energy is high. I also noticed that the same songs can stay near the top across multiple profiles if they are close to the user's energy target, which makes sense mathematically but can reduce variety.
 
 ---
 
