@@ -2,11 +2,23 @@
 
 from __future__ import annotations
 
+import logging
 from textwrap import dedent
+from typing import Optional
 
 import streamlit as st
+from pypdf import PdfReader
+
+try:
+    from docx import Document  # type: ignore
+except Exception:  # pragma: no cover - optional dependency fallback
+    Document = None
 
 from src.recommender import analyze_application
+
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
+logger = logging.getLogger(__name__)
 
 
 st.set_page_config(
@@ -77,247 +89,125 @@ def inject_styles() -> None:
         """
         <style>
         :root {
-            --bg-1: #0b1020;
-            --bg-2: #121a33;
-            --panel: rgba(15, 22, 44, 0.72);
-            --panel-border: rgba(255, 255, 255, 0.10);
-            --text-main: #f3f6ff;
-            --text-soft: rgba(243, 246, 255, 0.72);
-            --accent: #6ee7ff;
-            --accent-2: #8b5cf6;
-            --accent-3: #22c55e;
+            --bg-a: #08111f;
+            --bg-b: #0f1a30;
+            --bg-c: #172443;
+            --panel: rgba(13, 20, 38, 0.82);
+            --panel-strong: rgba(17, 26, 49, 0.96);
+            --border: rgba(255, 255, 255, 0.08);
+            --text: #f4f7ff;
+            --muted: rgba(244, 247, 255, 0.70);
+            --accent: #75e6ff;
+            --accent-2: #9b7bff;
+            --accent-3: #2dd4bf;
         }
 
         .stApp {
             background:
-                radial-gradient(circle at top left, rgba(110, 231, 255, 0.16), transparent 28%),
-                radial-gradient(circle at 85% 10%, rgba(139, 92, 246, 0.18), transparent 25%),
-                linear-gradient(180deg, var(--bg-1) 0%, var(--bg-2) 100%);
-            color: var(--text-main);
+                radial-gradient(circle at 12% 10%, rgba(117, 230, 255, 0.16), transparent 26%),
+                radial-gradient(circle at 92% 8%, rgba(155, 123, 255, 0.18), transparent 20%),
+                linear-gradient(180deg, var(--bg-a) 0%, var(--bg-b) 50%, var(--bg-c) 100%);
+            color: var(--text);
         }
 
         .block-container {
-            padding-top: 1.2rem;
+            padding-top: 1rem;
             padding-bottom: 2rem;
         }
 
-        .hero-card {
-            position: relative;
-            overflow: hidden;
-            border: 1px solid var(--panel-border);
-            border-radius: 30px;
-            background: linear-gradient(135deg, rgba(18, 26, 51, 0.88), rgba(8, 12, 24, 0.72));
-            box-shadow: 0 22px 80px rgba(0, 0, 0, 0.35);
-            min-height: 290px;
-            animation: hero-enter 700ms ease-out both;
+        [data-testid="stSidebar"] {
+            background: linear-gradient(180deg, rgba(7, 12, 24, 0.98), rgba(10, 16, 31, 0.96));
+            border-right: 1px solid var(--border);
         }
 
-        .hero-inner {
-            position: relative;
-            z-index: 2;
-            padding: 2.1rem 2rem 2rem 2rem;
+        [data-testid="stSidebar"] * {
+            color: var(--text);
+        }
+
+        .hero {
+            border: 1px solid var(--border);
+            border-radius: 30px;
+            padding: 1.5rem 1.6rem;
+            background: linear-gradient(135deg, rgba(19, 29, 56, 0.94), rgba(9, 14, 28, 0.88));
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.32);
         }
 
         .eyebrow {
-            display: inline-flex;
-            gap: 0.5rem;
-            align-items: center;
-            padding: 0.35rem 0.8rem;
+            display: inline-block;
+            padding: 0.35rem 0.75rem;
             border-radius: 999px;
-            background: rgba(110, 231, 255, 0.12);
-            color: #aef4ff;
-            font-size: 0.84rem;
-            letter-spacing: 0.08em;
+            background: rgba(117, 230, 255, 0.10);
+            color: #c8f8ff;
+            font-size: 0.80rem;
+            letter-spacing: 0.12em;
             text-transform: uppercase;
         }
 
-        .hero-title {
-            margin: 1rem 0 0.65rem 0;
-            font-size: clamp(2rem, 4vw, 4rem);
-            line-height: 1;
-            font-weight: 800;
+        .hero h1 {
+            margin: 0.75rem 0 0.35rem 0;
+            font-size: clamp(2rem, 4vw, 4.1rem);
+            line-height: 0.98;
             letter-spacing: -0.05em;
         }
 
-        .hero-copy {
-            max-width: 60rem;
-            color: var(--text-soft);
+        .hero p {
+            color: var(--muted);
             font-size: 1.02rem;
             line-height: 1.6;
+            max-width: 74ch;
         }
 
-        .orb {
-            position: absolute;
+        .mini-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.55rem 0.85rem;
             border-radius: 999px;
-            filter: blur(8px);
-            opacity: 0.9;
-            mix-blend-mode: screen;
-            animation: drift 7s ease-in-out infinite;
-        }
-
-        .orb.one {
-            width: 180px;
-            height: 180px;
-            right: -40px;
-            top: -30px;
-            background: radial-gradient(circle, rgba(110, 231, 255, 0.55), rgba(110, 231, 255, 0));
-        }
-
-        .orb.two {
-            width: 130px;
-            height: 130px;
-            left: 35%;
-            bottom: -20px;
-            background: radial-gradient(circle, rgba(139, 92, 246, 0.52), rgba(139, 92, 246, 0));
-        }
-
-        .orb.three {
-            width: 90px;
-            height: 90px;
-            right: 23%;
-            bottom: 42px;
-            background: radial-gradient(circle, rgba(34, 197, 94, 0.46), rgba(34, 197, 94, 0));
-        }
-
-        .feature-row {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 0.9rem;
-            margin-top: 1.5rem;
-        }
-
-        .feature-chip {
-            border: 1px solid rgba(255, 255, 255, 0.10);
             background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(14px);
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-size: 0.88rem;
+            margin-right: 0.5rem;
+            margin-top: 0.4rem;
+        }
+
+        .section-card {
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            background: rgba(11, 18, 33, 0.78);
+            box-shadow: 0 16px 46px rgba(0, 0, 0, 0.2);
+        }
+
+        .section-title {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+            color: var(--text);
+        }
+
+        .metric-row {
+            border: 1px solid var(--border);
+            border-radius: 22px;
+            background: rgba(255, 255, 255, 0.04);
+            padding: 0.3rem;
+        }
+
+        .output-box {
+            border: 1px solid rgba(117, 230, 255, 0.14);
             border-radius: 18px;
-            padding: 0.85rem 1rem;
-            color: var(--text-main);
-            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.18);
-            transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+            background: rgba(117, 230, 255, 0.05);
+            padding: 0.95rem 1rem;
         }
 
-        .feature-chip:hover {
-            transform: translateY(-2px);
-            border-color: rgba(110, 231, 255, 0.25);
-            background: rgba(110, 231, 255, 0.08);
-        }
-
-        .hero-grid {
-            display: grid;
-            grid-template-columns: 1.2fr 0.8fr;
-            gap: 1.25rem;
-            align-items: stretch;
-        }
-
-        .hero-right {
-            display: grid;
-            gap: 0.85rem;
-            align-content: start;
-        }
-
-        .stat-card {
-            border: 1px solid rgba(255, 255, 255, 0.10);
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 20px;
-            padding: 1rem;
-            backdrop-filter: blur(14px);
-        }
-
-        .stat-card strong {
-            display: block;
-            font-size: 0.92rem;
-            margin-bottom: 0.25rem;
-        }
-
-        .stat-card span {
-            color: var(--text-soft);
+        .small-note {
+            color: var(--muted);
             font-size: 0.88rem;
             line-height: 1.5;
         }
 
-        @keyframes hero-enter {
-            from {
-                opacity: 0;
-                transform: translateY(16px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        @keyframes drift {
-            0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-            50% { transform: translate3d(0, -10px, 0) scale(1.03); }
-        }
-
-        @media (max-width: 900px) {
-            .feature-row,
-            .hero-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .hero-inner {
-                padding: 1.4rem;
-            }
-        }
-
-        .feature-chip strong {
-            display: block;
-            font-size: 0.98rem;
-            margin-bottom: 0.25rem;
-        }
-
-        .feature-chip span {
-            color: var(--text-soft);
-            font-size: 0.87rem;
-        }
-
-        .panel-title {
-            font-size: 1rem;
-            font-weight: 700;
-            margin-bottom: 0.8rem;
-            color: var(--text-main);
-        }
-
-        .glass-panel {
-            border: 1px solid var(--panel-border);
-            border-radius: 24px;
-            padding: 1.1rem 1.1rem 0.9rem 1.1rem;
-            background: var(--panel);
-            box-shadow: 0 14px 42px rgba(0, 0, 0, 0.22);
-        }
-
-        .output-box {
-            border: 1px solid rgba(110, 231, 255, 0.18);
-            border-left: 4px solid var(--accent);
-            border-radius: 18px;
-            background: rgba(110, 231, 255, 0.06);
-            padding: 0.95rem 1rem;
-            color: var(--text-main);
-            line-height: 1.6;
-        }
-
-        .metric-label {
-            color: var(--text-soft);
-            font-size: 0.84rem;
-            margin-bottom: 0.1rem;
-        }
-
-        .metric-value {
-            color: var(--text-main);
-            font-size: 1.35rem;
-            font-weight: 800;
-        }
-
-        .small-note {
-            color: var(--text-soft);
-            font-size: 0.86rem;
-        }
-
         .stTextArea textarea,
         .stSelectbox div[data-baseweb="select"] > div,
+        .stFileUploader section,
         .stNumberInput input {
             border-radius: 16px !important;
         }
@@ -325,11 +215,27 @@ def inject_styles() -> None:
         .stButton button {
             border-radius: 999px;
             border: 0;
-            padding: 0.7rem 1.15rem;
+            padding: 0.7rem 1.1rem;
             background: linear-gradient(135deg, var(--accent), var(--accent-2));
-            color: #08101f;
+            color: #07121f;
             font-weight: 800;
-            box-shadow: 0 12px 30px rgba(139, 92, 246, 0.3);
+            box-shadow: 0 12px 28px rgba(155, 123, 255, 0.28);
+        }
+
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 0.35rem;
+        }
+
+        .stTabs [data-baseweb="tab"] {
+            border-radius: 999px;
+            padding: 0.5rem 0.9rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid transparent;
+        }
+
+        .stTabs [aria-selected="true"] {
+            background: rgba(117, 230, 255, 0.13) !important;
+            border-color: rgba(117, 230, 255, 0.25) !important;
         }
         </style>
         """,
@@ -337,59 +243,30 @@ def inject_styles() -> None:
     )
 
 
-def render_hero() -> None:
-        st.markdown(
-                """
-                <div class="hero-card">
-                    <div class="orb one"></div>
-                    <div class="orb two"></div>
-                    <div class="orb three"></div>
-                    <div class="hero-inner">
-                        <div class="hero-grid">
-                            <div>
-                                <div class="eyebrow">Job Application Copilot</div>
-                                <div class="hero-title">Turn a resume into tailored application material.</div>
-                                <div class="hero-copy">
-                                    This interface uses retrieval, generation, and evaluation to help you rewrite resume bullets,
-                                    draft a stronger cover-letter opener, and prepare interview talking points grounded in the job posting.
-                                </div>
+def extract_resume_text(uploaded_file) -> str:
+    """Extract plain text from an uploaded resume file."""
+    if uploaded_file is None:
+        return ""
 
-                                <div class="feature-row">
-                                    <div class="feature-chip">
-                                        <strong>Retrieval first</strong>
-                                        <span>Find the lines in the resume that matter before generating advice.</span>
-                                    </div>
-                                    <div class="feature-chip">
-                                        <strong>Guardrailed output</strong>
-                                        <span>Check coverage, relevance, and factual grounding before showing results.</span>
-                                    </div>
-                                    <div class="feature-chip">
-                                        <strong>Fast feedback</strong>
-                                        <span>Use the built-in evaluation score to spot weak matches immediately.</span>
-                                    </div>
-                                </div>
-                            </div>
+    file_name = uploaded_file.name.lower()
+    logger.info("Extracting resume text from %s", file_name)
 
-                            <div class="hero-right">
-                                <div class="stat-card">
-                                    <strong>What it does</strong>
-                                    <span>Reads a resume and job description, then generates grounded application help.</span>
-                                </div>
-                                <div class="stat-card">
-                                    <strong>Why it matters</strong>
-                                    <span>It saves time and keeps suggestions tied to real evidence instead of generic advice.</span>
-                                </div>
-                                <div class="stat-card">
-                                    <strong>How it behaves</strong>
-                                    <span>The retriever, generator, and evaluator all run together in one workflow.</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-        )
+    if file_name.endswith(".txt"):
+        return uploaded_file.getvalue().decode("utf-8", errors="ignore").strip()
+
+    if file_name.endswith(".pdf"):
+        reader = PdfReader(uploaded_file)
+        pages = [page.extract_text() or "" for page in reader.pages]
+        return "\n".join(part.strip() for part in pages if part.strip()).strip()
+
+    if file_name.endswith(".docx"):
+        if Document is None:
+            raise ValueError("DOCX support is unavailable in this environment")
+        document = Document(uploaded_file)
+        paragraphs = [paragraph.text.strip() for paragraph in document.paragraphs if paragraph.text.strip()]
+        return "\n".join(paragraphs).strip()
+
+    raise ValueError("Unsupported file type. Upload a .pdf, .txt, or .docx file.")
 
 
 def load_sample(name: str) -> None:
@@ -399,64 +276,98 @@ def load_sample(name: str) -> None:
     st.session_state.company_notes = sample["notes"]
 
 
-def render_summary(analysis) -> None:
+def render_hero() -> None:
+    st.markdown(
+        """
+        <div class="hero">
+            <span class="eyebrow">Job Application Copilot</span>
+            <h1>Turn a resume into tailored application material.</h1>
+            <p>
+                Upload a resume or paste text, pair it with a job description, and the copilot will retrieve the
+                strongest evidence first, then draft grounded bullet rewrites, a cover letter opening, and interview
+                talking points.
+            </p>
+            <span class="mini-chip">Retrieval first</span>
+            <span class="mini-chip">Guardrailed output</span>
+            <span class="mini-chip">Reliability checks</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_quick_stats(analysis) -> None:
     cols = st.columns(4)
-    metrics = [
+    stats = [
         ("Target role", analysis.target_role),
         ("Coverage", f"{analysis.coverage_score:.2f}"),
         ("Evidence items", str(len(analysis.top_evidence))),
         ("Transferable skills", str(len(analysis.transferable_skills))),
     ]
-    for col, (label, value) in zip(cols, metrics):
+    for col, (label, value) in zip(cols, stats):
         with col:
-            st.markdown(
-                f"""
-                <div class="glass-panel">
-                  <div class="metric-label">{label}</div>
-                  <div class="metric-value">{value}</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+            st.metric(label, value)
+    st.progress(min(max(analysis.coverage_score, 0.0), 1.0))
 
 
 def main() -> None:
     inject_styles()
     render_hero()
 
-    st.markdown("<div style='height: 0.75rem;'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height: 1rem;'></div>", unsafe_allow_html=True)
+
+    if "resume_text" not in st.session_state:
+        load_sample("Software Engineer")
+    if "job_description" not in st.session_state:
+        load_sample("Software Engineer")
+    if "company_notes" not in st.session_state:
+        load_sample("Software Engineer")
 
     sidebar_choice = st.sidebar.selectbox("Load a sample scenario", list(SAMPLE_SCENARIOS.keys()))
     if st.sidebar.button("Load sample into editor"):
         load_sample(sidebar_choice)
+        st.rerun()
 
     st.sidebar.markdown(
         """
-        <div class="glass-panel">
-          <div class="panel-title">How to use it</div>
+        <div class="section-card" style="padding: 1rem;">
+          <div class="section-title">How to use it</div>
           <div class="small-note">
-            Paste a resume and job description, optionally add company notes, then generate a tailored application plan.
-            The analysis is deterministic, grounded in the provided text, and validated with guardrails.
+            Upload a resume, paste a job description, and optionally add company notes. The app extracts text from
+            the file and fills the resume box for you.
           </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    if "resume_text" not in st.session_state:
-        load_sample(sidebar_choice)
-
     left, right = st.columns([1.05, 0.95], gap="large")
 
     with left:
-        st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
-        st.markdown('<div class="panel-title">Input Workspace</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-card" style="padding: 1rem 1rem 0.9rem 1rem;">', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">Input workspace</div>', unsafe_allow_html=True)
+        uploaded_resume = st.file_uploader(
+            "Upload a resume",
+            type=["pdf", "txt", "docx"],
+            help="Supported formats: PDF, TXT, DOCX",
+        )
+        if uploaded_resume is not None:
+            try:
+                extracted_text = extract_resume_text(uploaded_resume)
+                if extracted_text:
+                    st.session_state.resume_text = extracted_text
+                    st.success(f"Loaded {uploaded_resume.name} into the resume field.")
+                else:
+                    st.warning("The uploaded file did not contain readable text.")
+            except Exception as exc:
+                st.error(f"Could not read the uploaded resume: {exc}")
+
         with st.form("copilot_form"):
             resume_text = st.text_area(
-                "Resume",
+                "Resume text",
                 value=st.session_state.resume_text,
-                height=220,
-                placeholder="Paste the user's resume or key bullet points here.",
+                height=240,
+                placeholder="Paste the user's resume or upload a file above.",
             )
             job_description = st.text_area(
                 "Job description",
@@ -471,20 +382,16 @@ def main() -> None:
                 placeholder="Add company values, mission, or recruiter notes.",
             )
             submitted = st.form_submit_button("Generate application plan")
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
     with right:
-        st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
-        st.markdown('<div class="panel-title">What the AI returns</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-card" style="padding: 1rem;">', unsafe_allow_html=True)
+        st.markdown('<div class="section-title">What the AI returns</div>', unsafe_allow_html=True)
         st.markdown(
-            """
-            <div class="small-note">
-            The copilot retrieves relevant evidence first, then drafts grounded suggestions and checks coverage before presenting the result.
-            </div>
-            """,
+            "<div class='small-note'>The copilot retrieves relevant evidence first, then drafts grounded suggestions and checks coverage before presenting the result.</div>",
             unsafe_allow_html=True,
         )
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
     if submitted:
         analysis = analyze_application(resume_text, job_description, company_notes or None)
@@ -493,55 +400,41 @@ def main() -> None:
     analysis = st.session_state.get("latest_analysis")
     if analysis:
         st.markdown("<div style='height: 1rem;'></div>", unsafe_allow_html=True)
-        render_summary(analysis)
+        render_quick_stats(analysis)
 
-        c1, c2 = st.columns(2, gap="large")
-        with c1:
-            st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
-            st.markdown('<div class="panel-title">Top evidence retrieved</div>', unsafe_allow_html=True)
+        st.markdown("<div style='height: 0.7rem;'></div>", unsafe_allow_html=True)
+        draft_tab, evidence_tab, reliability_tab = st.tabs(["Draft", "Evidence", "Reliability"])
+
+        with draft_tab:
+            st.markdown('<div class="section-card" style="padding: 1rem;">', unsafe_allow_html=True)
+            st.subheader("Candidate-ready output")
+            st.markdown("**Cover letter opening**")
+            st.info(analysis.cover_letter_opening)
+            st.markdown("**Suggested resume bullets**")
+            for bullet in analysis.resume_bullets:
+                st.markdown(f"- {bullet}")
+            st.markdown("**Interview talking points**")
+            for point in analysis.interview_talking_points:
+                st.markdown(f"- {point}")
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        with evidence_tab:
+            st.markdown('<div class="section-card" style="padding: 1rem;">', unsafe_allow_html=True)
+            st.subheader("Top evidence retrieved")
             for item in analysis.top_evidence:
-                st.markdown(
-                    f"""
-                    <div class="output-box" style="margin-bottom: 0.75rem;">
-                      <strong>{item.source.replace('_', ' ').title()}</strong><br/>
-                      {item.text}
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-            st.markdown('</div>', unsafe_allow_html=True)
+                with st.container(border=True):
+                    st.caption(item.source.replace("_", " ").title())
+                    st.write(item.text)
+            st.markdown("</div>", unsafe_allow_html=True)
 
-        with c2:
-            st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
-            st.markdown('<div class="panel-title">Candidate-ready output</div>', unsafe_allow_html=True)
-            st.markdown(
-                f"""
-                <div class="output-box">
-                  <strong>Cover letter opening</strong><br/>
-                  {analysis.cover_letter_opening}
-                </div>
-                <div style="height: 0.85rem;"></div>
-                <div class="output-box">
-                  <strong>Suggested resume bullets</strong><br/>
-                  {'<br/>'.join(f'• {bullet}' for bullet in analysis.resume_bullets)}
-                </div>
-                <div style="height: 0.85rem;"></div>
-                <div class="output-box">
-                  <strong>Interview talking points</strong><br/>
-                  {'<br/>'.join(f'• {point}' for point in analysis.interview_talking_points)}
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
+        with reliability_tab:
+            st.markdown('<div class="section-card" style="padding: 1rem;">', unsafe_allow_html=True)
+            st.subheader("Reliability checks")
+            for check_name, passed in analysis.checks.items():
+                st.write(f"{check_name}: {'pass' if passed else 'fail'}")
             if analysis.warnings:
                 st.warning(" ".join(analysis.warnings))
-
-            with st.expander("Reliability checks"):
-                for check_name, passed in analysis.checks.items():
-                    st.write(f"{check_name}: {'pass' if passed else 'fail'}")
-
-            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
 
 
 if __name__ == "__main__":
