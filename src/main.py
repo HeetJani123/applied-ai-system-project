@@ -1,41 +1,82 @@
-"""
-Command line runner for the Music Recommender Simulation.
+"""Command line runner for the Job Application Copilot."""
 
-This file helps you quickly run and test your recommender.
+from __future__ import annotations
 
-You will implement the functions in recommender.py:
-- load_songs
-- score_song
-- recommend_songs
-"""
+import logging
+from textwrap import dedent
 
-from src.recommender import load_songs, recommend_songs
+from src.recommender import analyze_application, format_analysis
 
 
-def print_recommendations(label: str, user_prefs: dict, songs: list) -> None:
+logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
+
+
+def print_analysis(label: str, resume_text: str, job_description: str, company_notes: str | None = None) -> None:
     print(f"\n=== {label} ===\n")
-    recommendations = recommend_songs(user_prefs, songs, k=5)
-
-    for index, rec in enumerate(recommendations, start=1):
-        song, score, explanation = rec
-        print(f"{index}. {song['title']} by {song['artist']}")
-        print(f"   Score: {score:.2f}")
-        print(f"   Reasons: {explanation}")
-        print()
+    analysis = analyze_application(resume_text, job_description, company_notes)
+    print(format_analysis(analysis))
 
 
 def main() -> None:
-    songs = load_songs("data/songs.csv") 
+    scenarios = [
+        (
+            "Software Engineer",
+            dedent(
+                """
+                Built Python APIs for internal tools.
+                Wrote automated tests for backend services.
+                Collaborated with product and design teams to ship features.
+                """
+            ).strip(),
+            dedent(
+                """
+                Backend Engineer
 
-    profiles = [
-        ("High-Energy Pop", {"genre": "pop", "mood": "happy", "energy": 0.85}),
-        ("Chill Lofi", {"genre": "lofi", "mood": "chill", "energy": 0.35}),
-        ("Deep Intense Rock", {"genre": "rock", "mood": "intense", "energy": 0.9}),
-        ("Conflicting Energy-Sad", {"genre": "pop", "mood": "sad", "energy": 0.9}),
+                We are looking for a backend engineer with Python, FastAPI, and test automation experience.
+                The role values clear communication and reliable delivery.
+                """
+            ).strip(),
+            "We value collaboration, reliable delivery, and continuous learning.",
+        ),
+        (
+            "Marketing Analyst",
+            dedent(
+                """
+                Created weekly campaign reports in Excel and dashboards.
+                Presented findings to stakeholders and marketing leads.
+                Improved reporting workflows with better organization.
+                """
+            ).strip(),
+            dedent(
+                """
+                Marketing Analyst
+
+                Looking for a candidate with analytics, reporting, dashboards, and stakeholder communication skills.
+                """
+            ).strip(),
+            None,
+        ),
+        (
+            "Project Coordinator",
+            dedent(
+                """
+                Tutored students, tracked schedules, and coordinated group projects.
+                Delivered presentations and managed deadlines across multiple tasks.
+                """
+            ).strip(),
+            dedent(
+                """
+                Project Coordinator
+
+                This role needs organization, scheduling, communication, and leadership.
+                """
+            ).strip(),
+            "The team is collaborative and values clear communication.",
+        ),
     ]
 
-    for label, user_prefs in profiles:
-        print_recommendations(label, user_prefs, songs)
+    for label, resume_text, job_description, company_notes in scenarios:
+        print_analysis(label, resume_text, job_description, company_notes)
 
 
 if __name__ == "__main__":

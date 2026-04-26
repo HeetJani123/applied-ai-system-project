@@ -1,61 +1,69 @@
-from src.recommender import Song, UserProfile, Recommender
+import pytest
 
-def make_small_recommender() -> Recommender:
-    songs = [
-        Song(
-            id=1,
-            title="Test Pop Track",
-            artist="Test Artist",
-            genre="pop",
-            mood="happy",
-            energy=0.8,
-            tempo_bpm=120,
-            valence=0.9,
-            danceability=0.8,
-            acousticness=0.2,
-        ),
-        Song(
-            id=2,
-            title="Chill Lofi Loop",
-            artist="Test Artist",
-            genre="lofi",
-            mood="chill",
-            energy=0.4,
-            tempo_bpm=80,
-            valence=0.6,
-            danceability=0.5,
-            acousticness=0.9,
-        ),
-    ]
-    return Recommender(songs)
+from src.recommender import analyze_application, retrieve_relevant_evidence
 
 
-def test_recommend_returns_songs_sorted_by_score():
-    user = UserProfile(
-        favorite_genre="pop",
-        favorite_mood="happy",
-        target_energy=0.8,
-        likes_acoustic=False,
+def test_retrieve_relevant_evidence_prioritizes_matching_resume_lines():
+    resume_text = """
+    Built Python APIs for internal tools.
+    Managed team calendars and coordinated schedules.
+    Wrote automated tests for backend services.
+    """.strip()
+    job_description = """
+    Backend Engineer
+    Need Python, FastAPI, and test automation.
+    """.strip()
+
+    evidence, warnings, target_role = retrieve_relevant_evidence(resume_text, job_description)
+
+    assert target_role == "Backend Engineer"
+    assert warnings == []
+    assert evidence
+    assert any(
+        item.source == "resume" and ("Python APIs" in item.text or "automated tests" in item.text)
+        for item in evidence
     )
-    rec = make_small_recommender()
-    results = rec.recommend(user, k=2)
-
-    assert len(results) == 2
-    # Starter expectation: the pop, happy, high energy song should score higher
-    assert results[0].genre == "pop"
-    assert results[0].mood == "happy"
 
 
-def test_explain_recommendation_returns_non_empty_string():
-    user = UserProfile(
-        favorite_genre="pop",
-        favorite_mood="happy",
-        target_energy=0.8,
-        likes_acoustic=False,
-    )
-    rec = make_small_recommender()
-    song = rec.songs[0]
+def test_analyze_application_generates_grounded_advice():
+    resume_text = """
+    Created weekly campaign reports in Excel and dashboards.
+    Presented findings to stakeholders and marketing leads.
+    """.strip()
+    job_description = """
+    Marketing Analyst
+    Looking for analytics, reporting, dashboards, and stakeholder communication.
+    """.strip()
 
-    explanation = rec.explain_recommendation(user, song)
-    assert isinstance(explanation, str)
-    assert explanation.strip() != ""
+    analysis = analyze_application(resume_text, job_description)
+
+    assert analysis.target_role == "Marketing Analyst"
+    assert analysis.coverage_score > 0
+    assert analysis.checks["has_evidence"] is True
+    assert analysis.checks["has_resume_bullets"] is True
+    assert analysis.cover_letter_opening.strip() != ""
+    assert any("dashboard" in bullet.lower() or "stakeholder" in bullet.lower() for bullet in analysis.resume_bullets)
+
+
+def test_analyze_application_is_deterministic_for_same_input():
+    resume_text = """
+    Tutored students, tracked schedules, and coordinated group projects.
+    Delivered presentations and managed deadlines across multiple tasks.
+    """.strip()
+    job_description = """
+    Project Coordinator
+    This role needs organization, scheduling, communication, and leadership.
+    """.strip()
+
+    first = analyze_application(resume_text, job_description)
+    second = analyze_application(resume_text, job_description)
+
+    assert first == second
+
+
+def test_analyze_application_rejects_empty_input():
+    with pytest.raises(ValueError):
+        analyze_application("", "Some job description")
+
+    with pytest.raises(ValueError):
+        analyze_application("Some resume", "")

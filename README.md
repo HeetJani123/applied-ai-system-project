@@ -1,326 +1,158 @@
-# 🎵 Music Recommender Simulation
+# Job Application Copilot
 
-## Project Summary
+## Original Project
 
-In this project you will build and explain a small music recommender system.
+This project originally started as **Music Recommender Simulation**, a small classroom recommender that ranked songs by genre, mood, and energy. Its goal was to show how a simple scoring model can turn structured data into personalized recommendations, while also making it easy to explain why one item ranked above another.
 
-Your goal is to:
-
-- Represent songs and a user "taste profile" as data
-- Design a scoring rule that turns that data into recommendations
-- Evaluate what your system gets right and wrong
-- Reflect on how this mirrors real world AI recommenders
-
-Replace this paragraph with your own summary of what your version does.
+The upgraded version turns that same recommender structure into a **Job Application Copilot**. Instead of suggesting songs, it helps a user tailor a resume, cover letter, or interview prep plan to a specific job description by retrieving relevant evidence first and then generating grounded suggestions.
 
 ---
 
-## How The System Works
+## Title and Summary
 
-Real-world systems like Spotify and YouTube mix collaborative filtering and content-based filtering. Collaborative filtering learns from behavior such as likes, skips, replays, playlist adds, and listening history across many users. Content-based filtering looks at the song itself, using features like genre, mood, energy, tempo_bpm, and danceability. My simulator focuses on content-based filtering because the catalog is small and I want a scoring rule that is easy to explain.
+**What it does:** The system reads a resume and a job description, finds the most relevant experience and keywords, then drafts tailored application help such as bullet point rewrites, cover-letter phrases, and interview talking points.
 
-My `Song` objects use these features: `genre`, `mood`, `energy`, `tempo_bpm`, and `danceability`. My `UserProfile` stores `favorite_genre`, `favorite_mood`, and `target_energy`. The recommender will score each song with a simple algorithm recipe: +2.0 points for a genre match, +1.0 point for a mood match, and extra points when the song’s energy is close to the user’s target energy. If I want to go a little deeper, I can also give small bonus points for tempo and danceability when they support the same vibe.
+**Why it matters:** Job applications are repetitive and time-consuming. A well-designed AI assistant can save time, improve match quality, and help users present their experience more clearly without inventing facts.
 
-This system might over-prioritize genre if I make the weight too strong, which could cause it to miss songs that match the user’s mood and energy better.
+---
 
-Data flow:
+## Architecture Overview
 
-- Input: user preferences like favorite genre, favorite mood, and target energy
-- Process: the recommender loops through every song in `songs.csv`, scores each one, and compares the score against the others
-- Output: the songs are sorted into a ranked list and the top `k` recommendations are returned
+The system uses a retrieval-first, plan-act-check workflow:
 
 ```mermaid
 flowchart LR
-   A[User Prefs<br/>favorite_genre<br/>favorite_mood<br/>target_energy] --> B[Load songs.csv]
-   B --> C[Loop through each song]
-   C --> D[Score song<br/>genre + mood + energy closeness]
-   D --> E[Add score to list]
-   E --> F[Rank all songs by score]
-   F --> G[Return top K recommendations]
+    U[User<br/>resume + job description] --> P[Input parser<br/>clean and structure text]
+    P --> R[Retriever<br/>find relevant resume lines and job requirements]
+    R --> A[Agent / Generator<br/>draft tailored bullets, summary, or cover letter]
+    A --> E[Evaluator / Guardrails<br/>check coverage, relevance, and factual grounding]
+    E --> O[Output<br/>application suggestions + explanations]
 
-   C -. single song path .-> D
-  ```
-
-Sample CLI output from `python -m src.main`:
-
-```text
-Loaded songs: 10
-
-=== High-Energy Pop ===
-
-1. Sunrise City by Neon Echo
-   Score: 5.88
-   Reasons: genre match (+1.0); mood match (+1.0); energy closeness (+3.88)
-
-2. Gym Hero by Max Pulse
-   Score: 4.68
-   Reasons: genre match (+1.0); energy closeness (+3.68)
-
-3. Rooftop Lights by Indigo Parade
-   Score: 4.64
-   Reasons: mood match (+1.0); energy closeness (+3.64)
-
-4. Night Drive Loop by Neon Echo
-   Score: 3.60
-   Reasons: energy closeness (+3.60)
-
-5. Storm Runner by Voltline
-   Score: 3.76
-   Reasons: energy closeness (+3.76)
-
-=== Chill Lofi ===
-
-1. Library Rain by Paper Lanterns
-   Score: 6.00
-   Reasons: genre match (+1.0); mood match (+1.0); energy closeness (+4.00)
-
-2. Midnight Coding by LoRoom
-   Score: 5.72
-   Reasons: genre match (+1.0); mood match (+1.0); energy closeness (+3.72)
-
-3. Focus Flow by LoRoom
-   Score: 4.80
-   Reasons: genre match (+1.0); energy closeness (+3.80)
-
-4. Spacewalk Thoughts by Orbit Bloom
-   Score: 4.72
-   Reasons: mood match (+1.0); energy closeness (+3.72)
-
-5. Coffee Shop Stories by Slow Stereo
-   Score: 3.92
-   Reasons: energy closeness (+3.92)
-
-=== Deep Intense Rock ===
-
-1. Storm Runner by Voltline
-   Score: 5.96
-   Reasons: genre match (+1.0); mood match (+1.0); energy closeness (+3.96)
-
-2. Gym Hero by Max Pulse
-   Score: 4.88
-   Reasons: mood match (+1.0); energy closeness (+3.88)
-
-3. Sunrise City by Neon Echo
-   Score: 3.68
-   Reasons: energy closeness (+3.68)
-
-4. Rooftop Lights by Indigo Parade
-   Score: 3.44
-   Reasons: energy closeness (+3.44)
-
-5. Night Drive Loop by Neon Echo
-   Score: 3.40
-   Reasons: energy closeness (+3.40)
-
-=== Conflicting Energy-Sad ===
-
-1. Gym Hero by Max Pulse
-   Score: 4.88
-   Reasons: genre match (+1.0); energy closeness (+3.88)
-
-2. Sunrise City by Neon Echo
-   Score: 4.68
-   Reasons: genre match (+1.0); energy closeness (+3.68)
-
-3. Storm Runner by Voltline
-   Score: 3.96
-   Reasons: energy closeness (+3.96)
-
-4. Rooftop Lights by Indigo Parade
-   Score: 3.44
-   Reasons: energy closeness (+3.44)
-
-5. Night Drive Loop by Neon Echo
-   Score: 3.40
-   Reasons: energy closeness (+3.40)
+    T[Tester<br/>repeatable checks in pytest] --> R
+    T --> E
+    H[Human review<br/>spot-check quality and truthfulness] --> O
 ```
 
-Evaluation notes:
-
-- High-Energy Pop: top result was `Sunrise City`
-- Chill Lofi: top result was `Library Rain`
-- Deep Intense Rock: top result was `Storm Runner`
-- Conflicting Energy-Sad: top results were still very energetic songs, which showed that energy can overpower a mood mismatch
-
-This evaluation matched my expectation that genre and mood help separate styles, but it also showed that the energy weight has a strong effect on the final ranking.
+In plain language, the retriever chooses the evidence, the agent turns that evidence into advice, and the evaluator checks whether the answer is grounded and useful. Testing and human review both sit on top of the output to catch hallucinations, missing coverage, or weak suggestions.
 
 ---
 
-## Getting Started
+## Setup Instructions
 
-### Setup
-
-1. Create a virtual environment (optional but recommended):
+1. Install Python 3.10 or newer.
+2. Create and activate a virtual environment:
 
    ```bash
    python -m venv .venv
-   source .venv/bin/activate      # Mac or Linux
-   .venv\Scripts\activate         # Windows
+   .venv\Scripts\activate
+   ```
 
-2. Install dependencies
+3. Install dependencies:
 
-```bash
-pip install -r requirements.txt
-```
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-3. Run the app:
+4. Run the application:
 
-```bash
-python -m src.main
-```
+   ```bash
+   python -m src.main
+   ```
 
-### Running Tests
+5. Run the tests:
 
-Run the starter tests with:
+   ```bash
+   pytest
+   ```
 
-```bash
-pytest
-```
-
-You can add more tests in `tests/test_recommender.py`.
+The project is designed to run reproducibly from the repository root with only the dependencies listed in `requirements.txt`.
 
 ---
 
-## Experiments You Tried
+## Sample Interactions
 
-Use this section to document the experiments you ran. For example:
+### Example 1: Software Engineer Role
 
-- What happened when you changed the weight on genre from 2.0 to 0.5
-- What happened when you added tempo or valence to the score
-- How did your system behave for different types of users
+**Input**
+```text
+Resume: experience in Python, APIs, and testing
+Job: backend engineer role asking for Python, FastAPI, and automated tests
+```
+
+**AI output**
+```text
+Top matches: Python API work, test automation, backend delivery
+Suggested rewrite: "Built and tested Python API features for production services"
+Reason: The job description prioritizes Python, APIs, and testing, all of which appear in the resume.
+```
+
+### Example 2: Marketing Analyst Role
+
+**Input**
+```text
+Resume: campaign reporting, Excel, dashboarding
+Job: marketing analyst role asking for analytics, reporting, and stakeholder communication
+```
+
+**AI output**
+```text
+Top matches: reporting, dashboards, business communication
+Suggested rewrite: "Created weekly performance dashboards and explained results to stakeholders"
+Reason: This directly connects the user’s experience to the role’s reporting and communication needs.
+```
+
+### Example 3: Career Switcher
+
+**Input**
+```text
+Resume: tutoring, project coordination, and presentation skills
+Job: entry-level project coordinator role
+```
+
+**AI output**
+```text
+Top matches: coordination, scheduling, presentation skills
+Suggested advice: Emphasize leadership, cross-team communication, and task tracking
+Reason: The assistant identifies transferable skills instead of forcing a false technical match.
+```
 
 ---
 
-## Limitations and Risks
+## Design Decisions
 
-Summarize some limitations of your recommender.
+I built the system around retrieval first because the final advice should be grounded in the user’s actual resume and the job post, not in a generic response. That makes the output more trustworthy and easier to explain to a recruiter or instructor.
 
-Examples:
+I also included an evaluator stage because application help can go wrong if the model overstates experience or misses a required skill. The trade-off is that the system is slightly more complex, but the extra structure improves reliability and makes testing easier.
 
-- It only works on a tiny catalog
-- It does not understand lyrics or language
-- It might over favor one genre or mood
+---
 
-You will go deeper on this in your model card.
+## Reliability and Evaluation
+
+The system has two layers of reliability checks. First, automated tests verify that the retriever returns relevant evidence, the analyzer produces grounded suggestions, the workflow is deterministic for the same input, and empty input is rejected safely. Second, the CLI logs each stage of the pipeline so it is clear what was retrieved and how the final result was assembled.
+
+Summary of results:
+
+- 4 out of 4 automated tests passed.
+- The CLI demo produced coverage scores of 0.88, 0.75, and 0.62 across three sample jobs, for an average coverage score of 0.75.
+- The system struggled most when the job description was vague or only partially matched the resume, which lowered keyword coverage.
+- Human review is still important because the assistant can generate plausible but overly generic phrasing if the source text is weak.
+
+What I learned is that evaluation should check both correctness and grounding. A system can sound helpful while still missing the user’s real evidence, so I used tests, logging, and coverage scoring together to catch weak outputs early.
 
 ---
 
 ## Reflection
 
-Read and complete `model_card.md`:
+This project taught me that AI systems are most useful when they are specific, grounded, and easy to inspect. A good result is not just a fluent answer; it is an answer that can be traced back to the source material and checked against the user’s goal.
 
-[**Model Card**](model_card.md)
-
-Write 1 to 2 paragraphs here about what you learned:
-
-- about how recommenders turn data into predictions
-- about where bias or unfairness could show up in systems like this
-
+It also showed me that strong AI projects are not only about generation. Planning, retrieval, verification, and human review all matter because they reduce hallucinations and help the system behave more like a useful assistant than a random text generator.
 
 ---
 
-## 7. `model_card_template.md`
+## Current Files
 
-Combines reflection and model card framing from the Module 3 guidance. :contentReference[oaicite:2]{index=2}  
-
-```markdown
-# 🎧 Model Card - Music Recommender Simulation
-
-## 1. Model Name
-
-Give your recommender a name, for example:
-
-> VibeFinder 1.0
-
----
-
-## 2. Intended Use
-
-- What is this system trying to do
-- Who is it for
-
-Example:
-
-> This model suggests 3 to 5 songs from a small catalog based on a user's preferred genre, mood, and energy level. It is for classroom exploration only, not for real users.
-
----
-
-## 3. How It Works (Short Explanation)
-
-Describe your scoring logic in plain language.
-
-- What features of each song does it consider
-- What information about the user does it use
-- How does it turn those into a number
-
-Try to avoid code in this section, treat it like an explanation to a non programmer.
-
----
-
-## 4. Data
-
-Describe your dataset.
-
-- How many songs are in `data/songs.csv`
-- Did you add or remove any songs
-- What kinds of genres or moods are represented
-- Whose taste does this data mostly reflect
-
----
-
-## 5. Strengths
-
-Where does your recommender work well
-
-You can think about:
-- Situations where the top results "felt right"
-- Particular user profiles it served well
-- Simplicity or transparency benefits
-
----
-
-## 6. Limitations and Bias
-
-Where does your recommender struggle
-
-Some prompts:
-- Does it ignore some genres or moods
-- Does it treat all users as if they have the same taste shape
-- Is it biased toward high energy or one genre by default
-- How could this be unfair if used in a real product
-
----
-
-## 7. Evaluation
-
-How did you check your system
-
-Examples:
-- You tried multiple user profiles and wrote down whether the results matched your expectations
-- You compared your simulation to what a real app like Spotify or YouTube tends to recommend
-- You wrote tests for your scoring logic
-
-You do not need a numeric metric, but if you used one, explain what it measures.
-
----
-
-## 8. Future Work
-
-If you had more time, how would you improve this recommender
-
-Examples:
-
-- Add support for multiple users and "group vibe" recommendations
-- Balance diversity of songs instead of always picking the closest match
-- Use more features, like tempo ranges or lyric themes
-
----
-
-## 9. Personal Reflection
-
-A few sentences about what you learned:
-
-- What surprised you about how your system behaved
-- How did building this change how you think about real music recommenders
-- Where do you think human judgment still matters, even if the model seems "smart"
+- [Source code](src/main.py)
+- [Core recommender logic](src/recommender.py)
+- [Tests](tests/test_recommender.py)
+- [Model card](model_card.md)
 
