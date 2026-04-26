@@ -269,6 +269,11 @@ def extract_resume_text(uploaded_file) -> str:
     raise ValueError("Unsupported file type. Upload a .pdf, .txt, or .docx file.")
 
 
+def upload_signature(uploaded_file) -> tuple[str, int]:
+    """Create a lightweight signature so repeated reruns do not reprocess the same file."""
+    return uploaded_file.name, uploaded_file.size
+
+
 def load_sample(name: str) -> None:
     sample = SAMPLE_SCENARIOS[name]
     st.session_state.resume_text = sample["resume"]
@@ -353,12 +358,15 @@ def main() -> None:
         )
         if uploaded_resume is not None:
             try:
-                extracted_text = extract_resume_text(uploaded_resume)
-                if extracted_text:
-                    st.session_state.resume_text = extracted_text
-                    st.success(f"Loaded {uploaded_resume.name} into the resume field.")
-                else:
-                    st.warning("The uploaded file did not contain readable text.")
+                signature = upload_signature(uploaded_resume)
+                if st.session_state.get("resume_upload_signature") != signature:
+                    extracted_text = extract_resume_text(uploaded_resume)
+                    st.session_state.resume_upload_signature = signature
+                    if extracted_text:
+                        st.session_state.resume_text = extracted_text
+                        st.success(f"Loaded {uploaded_resume.name} into the resume field.")
+                    else:
+                        st.warning("The uploaded file did not contain readable text.")
             except Exception as exc:
                 st.error(f"Could not read the uploaded resume: {exc}")
 
