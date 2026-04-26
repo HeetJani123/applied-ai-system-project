@@ -53,13 +53,19 @@ In plain language, the retriever chooses the evidence, the agent turns that evid
    pip install -r requirements.txt
    ```
 
-4. Run the application:
+4. Run the application in the terminal demo:
 
    ```bash
    python -m src.main
    ```
 
-5. Run the tests:
+5. Run the animated Streamlit UI:
+
+   ```bash
+   streamlit run src/app.py
+   ```
+
+6. Run the tests:
 
    ```bash
    pytest
@@ -152,6 +158,7 @@ It also showed me that strong AI projects are not only about generation. Plannin
 ## Current Files
 
 - [Source code](src/main.py)
+- [Streamlit UI](src/app.py)
 - [Core recommender logic](src/recommender.py)
 - [Tests](tests/test_recommender.py)
 - [Model card](model_card.md)
