@@ -58,6 +58,10 @@ python -m streamlit run src/app.py
 pytest
 ```
 
+## Video Walkthrough
+
+Loom link: https://www.loom.com/share/a344deba570f4c2095e8ad2edb9d88be
+
 ## Sample Inputs and Outputs
 
 ### Example 1
