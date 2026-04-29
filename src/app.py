@@ -11,6 +11,24 @@ from src.recommender import analyze_listening_profile
 
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
+from src.recommender import (
+    analyze_listening_profile,
+    load_songs,
+    search_songs_by_query,
+    search_songs_by_genre,
+    search_songs_by_mood,
+)
+from pathlib import Path
+
+
+# Load songs data once
+@st.cache_resource
+def get_songs_df():
+    data_dir = Path(__file__).parent.parent / "data"
+    return load_songs(str(data_dir / "songs.csv"))
+
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -257,6 +275,53 @@ def main() -> None:
     )
 
     left, right = st.columns([1.05, 0.95], gap="large")
+    
+    # RAG Search Section
+    st.sidebar.markdown("---")
+    st.sidebar.markdown('<div class="section-title">🔍 RAG Song Search</div>', unsafe_allow_html=True)
+    
+    search_mode = st.sidebar.radio("Search by:", ["Semantic Query", "Genre", "Mood"], horizontal=True)
+    songs_df = get_songs_df()
+    
+    if search_mode == "Semantic Query":
+        search_query = st.sidebar.text_input("Describe what you're looking for")
+        if search_query:
+            results = search_songs_by_query(songs_df, search_query, top_k=5)
+            if results:
+                st.sidebar.markdown("**Found songs:**")
+                for song_id, score in results:
+                    song = songs_df[songs_df['id'] == song_id].iloc[0]
+                    st.sidebar.write(f"🎵 **{song['title']}** ({score:.2f})")
+                    st.sidebar.caption(f"{song['artist']} • {song['genre']}")
+            else:
+                st.sidebar.info("No songs found. Try different keywords.")
+    
+    elif search_mode == "Genre":
+        genre_input = st.sidebar.text_input("Enter genre", placeholder="e.g., pop, rock, lofi")
+        if genre_input:
+            results = search_songs_by_genre(songs_df, genre_input, top_k=5)
+            if results:
+                st.sidebar.markdown("**Genre matches:**")
+                for song_id in results:
+                    song = songs_df[songs_df['id'] == song_id].iloc[0]
+                    st.sidebar.write(f"🎵 {song['title']}")
+                    st.sidebar.caption(f"{song['artist']} • {song['mood']}")
+            else:
+                st.sidebar.info(f"No {genre_input} songs found.")
+    
+    elif search_mode == "Mood":
+        mood_input = st.sidebar.text_input("Enter mood", placeholder="e.g., happy, chill, intense")
+        if mood_input:
+            results = search_songs_by_mood(songs_df, mood_input, top_k=5)
+            if results:
+                st.sidebar.markdown("**Mood matches:**")
+                for song_id in results:
+                    song = songs_df[songs_df['id'] == song_id].iloc[0]
+                    st.sidebar.write(f"🎵 {song['title']}")
+                    st.sidebar.caption(f"{song['artist']} • {song['genre']}")
+            else:
+                st.sidebar.info(f"No {mood_input} songs found.")
+    
 
     with left:
         st.markdown('<div class="section-card" style="padding: 1rem 1rem 0.9rem 1rem;">', unsafe_allow_html=True)

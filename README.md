@@ -12,6 +12,12 @@ This AI tool recommends songs from a small catalog based on a listening vibe. It
 
 Why this matters: small recommender projects are useful for showing how AI systems can turn a simple scoring rule into a transparent recommendation workflow.
 
+## New in This Extension
+
+- **RAG (Retrieval-Augmented Generation)**: Semantic search over song metadata using TF-IDF, allowing users to search songs by natural language descriptions, genre, or mood.
+- **Explainable ranking**: Each recommendation includes a breakdown of which factors matched (genre +2.0, mood +1.5, energy +2.5, etc.).
+- **Coverage & diversity checks**: The system ensures recommendations cover the inferred preferences and don't repeat the same artists/genres.
+
 ## System Design
 
 ```mermaid
@@ -61,6 +67,30 @@ pytest
 ```
 
 ## Sample Inputs and Outputs
+
+## Using the Streamlit App
+
+The Streamlit UI (step 4 above) includes:
+
+- **Vibe Input**: Describe the listening vibe in your own words
+- **RAG Song Search** (sidebar): Three search modes:
+    - **Semantic Query**: Type a description like "upbeat pop for running" to find songs by meaning
+    - **Genre**: Search by genre (pop, lofi, rock, etc.)
+    - **Mood**: Search by mood (happy, chill, intense, etc.)
+- **Playlist tab**: See recommended songs with scores
+- **Evidence tab**: View why each song was chosen (factors that matched)
+- **Reliability tab**: Check system confidence and diversity of results
+
+## Sample Inputs and Outputs
+
+### RAG Search Example
+
+Query: "upbeat pop music"
+
+Results:
+- Sunrise City (pop, happy) - score: 0.342
+- Gym Hero (pop, intense) - score: 0.324  
+- Rooftop Lights (indie pop, happy) - score: 0.297
 
 ### Example 1
 

@@ -462,3 +462,51 @@ def format_analysis(analysis: RecommendationAnalysis) -> str:
         lines.append(f"- {check_name}: {'pass' if passed else 'fail'}")
 
     return "\n".join(lines)
+
+# ============ RAG (Retrieval-Augmented Generation) ============
+
+def search_songs_by_query(songs_df, query: str, top_k: int = 5) -> List[Tuple[int, float]]:
+    """
+    RAG-based semantic search for songs using TF-IDF.
+    
+    Args:
+        songs_df: DataFrame with songs
+        query: Natural language search query (e.g., "upbeat pop for running")
+        top_k: Number of results to return
+    
+    Returns:
+        List of (song_id, relevance_score) tuples
+    """
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.metrics.pairwise import cosine_similarity
+    import numpy as np
+    
+    song_list = songs_df if isinstance(songs_df, list) else list(songs_df)
+    searchable_texts = [f"{s.title} {s.artist} {s.genre} {s.mood}" for s in song_list]
+    
+    vectorizer = TfidfVectorizer(lowercase=True, stop_words='english', max_features=50)
+    tfidf_matrix = vectorizer.fit_transform(searchable_texts)
+    query_vector = vectorizer.transform([query])
+    similarities = cosine_similarity(query_vector, tfidf_matrix)[0]
+    top_indices = np.argsort(similarities)[::-1][:top_k]
+    
+    results = []
+    for idx in top_indices:
+        score = float(similarities[idx])
+        if score > 0:
+            results.append((int(song_list[idx].id), score))
+    return results
+
+
+def search_songs_by_genre(songs, genre: str, top_k: int = 5) -> List[int]:
+    """Search songs by genre."""
+    song_list = songs if isinstance(songs, list) else list(songs)
+    matching = [s for s in song_list if genre.lower() in s.genre.lower()]
+    return [int(s.id) for s in matching[:top_k]]
+
+
+def search_songs_by_mood(songs, mood: str, top_k: int = 5) -> List[int]:
+    """Search songs by mood."""
+    song_list = songs if isinstance(songs, list) else list(songs)
+    matching = [s for s in song_list if mood.lower() in s.mood.lower()]
+    return [int(s.id) for s in matching[:top_k]]

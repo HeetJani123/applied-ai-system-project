@@ -1,10 +1,5 @@
 pandas
 pytest
 streamlit
-pypdf
-python-docx
-fastapi
-uvicorn
 scikit-learn
 numpy
-pydantic
