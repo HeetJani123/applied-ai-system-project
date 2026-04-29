@@ -9,3 +9,43 @@ id,title,artist,genre,mood,energy,tempo_bpm,valence,danceability,acousticness
 8,Night Drive Loop,Neon Echo,synthwave,moody,0.75,110,0.49,0.73,0.22
 9,Focus Flow,LoRoom,lofi,focused,0.40,80,0.59,0.60,0.78
 10,Rooftop Lights,Indigo Parade,indie pop,happy,0.76,124,0.81,0.82,0.35
+11,Golden Hour,Dawn Riders,folk,relaxed,0.48,96,0.70,0.45,0.66
+12,Blue Train,Delta Line,blues,soulful,0.55,88,0.52,0.40,0.32
+13,Electric Heart,Neon Pulse,electronic,energetic,0.88,128,0.79,0.85,0.12
+14,Moonlit Sonata,Aria Nocte,classical,calm,0.20,60,0.22,0.10,0.95
+15,Bassline Bounce,Club Atlas,house,dancey,0.90,125,0.76,0.91,0.08
+16,Desert Roads,Sage & Stone,country,nostalgic,0.44,100,0.63,0.48,0.58
+17,Iron Fist,Steel Choir,metal,aggressive,0.98,170,0.34,0.40,0.02
+18,Summer Breeze,Latitude,reggae,relaxed,0.60,84,0.74,0.58,0.30
+19,Soul Talk,Maya Blue,R&B,romantic,0.67,95,0.82,0.50,0.28
+20,Neon Nights,Chromatica,synthpop,party,0.85,122,0.80,0.88,0.15
+21,Inner Calm,Silk Path,ambient,meditative,0.18,55,0.25,0.10,0.94
+22,City Streets,MC Tempo,hip-hop,confident,0.72,98,0.68,0.65,0.10
+23,Firelight,Wildwood,acoustic,mellow,0.38,86,0.66,0.30,0.81
+24,Gravity,Vector Shift,edm,energetic,0.92,140,0.70,0.92,0.06
+25,Paper Planes,The Couriers,indie rock,nostalgic,0.57,110,0.62,0.60,0.40
+26,Ocean Eyes,Ariel Sky,pop ballad,sad,0.33,76,0.28,0.25,0.85
+27,Machine Dreams,Synthetic Dawn,techno,driving,0.89,136,0.45,0.82,0.07
+28,Harmony Road,Global Folk,world,uplifting,0.50,102,0.77,0.43,0.60
+29,Funk Parade,The Groovers,funk,groovy,0.78,110,0.75,0.85,0.20
+30,Opera Aria,La Cavatina,opera,dramatic,0.65,70,0.30,0.20,0.88
+31,Velvet Shadows,Noir Alley,trip hop,moody,0.54,96,0.45,0.50,0.55
+32,Positive Vibes,Sunny Days,pop,happy,0.80,120,0.85,0.82,0.20
+33,Late Night Talk,Gentle Echo,indie,romantic,0.58,92,0.76,0.60,0.40
+34,Silent Ocean,Aqua Choir,ambient,meditative,0.15,50,0.20,0.05,0.98
+35,Turbo Charge,Road Runners,rock,energetic,0.95,160,0.40,0.78,0.04
+36,Back Alley Blues,Harlem Nights,blues,soulful,0.60,82,0.50,0.38,0.25
+37,Painted Skies,The Palettes,folk,nostalgic,0.46,98,0.68,0.42,0.62
+38,Cloud City,Orbital Drift,synthwave,moody,0.77,115,0.50,0.70,0.18
+39,Heartbeat City,Electric Summer,electropop,party,0.86,126,0.78,0.88,0.10
+40,Quiet Corners,Book Nook,chamber,calm,0.22,64,0.33,0.18,0.90
+41,Sunset Blvd,Cruise Control,funk,groovy,0.74,108,0.72,0.86,0.22
+42,Rainy Window,Soft Notes,ambient,chill,0.30,62,0.57,0.35,0.88
+43,Wildfire,Embers,metal,aggressive,0.97,175,0.28,0.38,0.03
+44,Paper Hearts,The Penpals,indie pop,romantic,0.65,104,0.80,0.70,0.36
+45,Neon Pulse Remix,Neon Pulse,electronic,energetic,0.91,132,0.75,0.90,0.09
+46,Driftwood,Coastal Road,country,relaxed,0.42,88,0.64,0.40,0.67
+47,Midnight Waltz,Ballroom Five,classical,nostalgic,0.28,72,0.38,0.15,0.92
+48,Groove Machine,Funk Engine,funk,party,0.82,118,0.79,0.90,0.14
+49,Chromatic Rain,Studio 9,ambient,moody,0.33,68,0.46,0.22,0.87
+50,Back to You,Heartstrings,pop ballad,romantic,0.54,86,0.69,0.40,0.60

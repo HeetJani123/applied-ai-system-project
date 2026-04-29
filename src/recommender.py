@@ -481,32 +481,86 @@ def search_songs_by_query(songs_df, query: str, top_k: int = 5) -> List[Tuple[in
     from sklearn.metrics.pairwise import cosine_similarity
     import numpy as np
     
+    import difflib
+
     song_list = songs_df if isinstance(songs_df, list) else list(songs_df)
-    searchable_texts = [f"{s.title} {s.artist} {s.genre} {s.mood}" for s in song_list]
-    
-    vectorizer = TfidfVectorizer(lowercase=True, stop_words='english', max_features=50)
+
+    # Build richer searchable text for each song (title, artist, genre, mood, and tokens)
+    def _combined_text(s: Song) -> str:
+        tokens = " ".join(re.findall(r"\w+", f"{s.title} {s.artist} {s.genre} {s.mood}".lower()))
+        return f"{s.title} {s.artist} {s.genre} {s.mood} {tokens}"
+
+    searchable_texts = [_combined_text(s) for s in song_list]
+
+    # Try TF-IDF with word n-grams for flexible matching
+    vectorizer = TfidfVectorizer(lowercase=True, stop_words='english', ngram_range=(1, 2), max_features=200)
     tfidf_matrix = vectorizer.fit_transform(searchable_texts)
     query_vector = vectorizer.transform([query])
     similarities = cosine_similarity(query_vector, tfidf_matrix)[0]
-    top_indices = np.argsort(similarities)[::-1][:top_k]
-    
+
+    # Collect results where similarity positive
     results = []
+    top_indices = np.argsort(similarities)[::-1][:top_k]
     for idx in top_indices:
         score = float(similarities[idx])
-        if score > 0:
+        if score > 0.0001:
             results.append((int(song_list[idx].id), score))
+
+    # Fallback: if TF-IDF finds nothing meaningful, use token-overlap and sequence matching
+    if not results:
+        q_norm = _normalize_text(query)
+        fallback_scores = []
+        q_tokens = set(re.findall(r"\w+", q_norm))
+        for i, text in enumerate(searchable_texts):
+            text_tokens = set(re.findall(r"\w+", text))
+            # token overlap score
+            overlap = len(q_tokens & text_tokens) / max(1, len(q_tokens | text_tokens))
+            # sequence similarity provides fuzzy tolerance for typos
+            seq = difflib.SequenceMatcher(a=q_norm, b=text).ratio()
+            score = max(overlap, seq * 0.9)
+            fallback_scores.append((i, score))
+
+        fallback_scores.sort(key=lambda x: x[1], reverse=True)
+        for idx, score in fallback_scores[:top_k]:
+            if score > 0.15:
+                results.append((int(song_list[idx].id), float(score)))
+
     return results
 
 
 def search_songs_by_genre(songs, genre: str, top_k: int = 5) -> List[int]:
     """Search songs by genre."""
+    import difflib
+
     song_list = songs if isinstance(songs, list) else list(songs)
-    matching = [s for s in song_list if genre.lower() in s.genre.lower()]
-    return [int(s.id) for s in matching[:top_k]]
+    q = _normalize_text(genre)
+    # direct substring matches first
+    matching = [s for s in song_list if q in _normalize_text(s.genre)]
+    if matching:
+        return [int(s.id) for s in matching[:top_k]]
+
+    # fuzzy match genre tokens
+    scores = []
+    for s in song_list:
+        score = difflib.SequenceMatcher(a=q, b=_normalize_text(s.genre)).ratio()
+        scores.append((s, score))
+    scores.sort(key=lambda x: x[1], reverse=True)
+    return [int(s.id) for s, _ in scores[:top_k] if _ > 0.25]
 
 
 def search_songs_by_mood(songs, mood: str, top_k: int = 5) -> List[int]:
     """Search songs by mood."""
+    import difflib
+
     song_list = songs if isinstance(songs, list) else list(songs)
-    matching = [s for s in song_list if mood.lower() in s.mood.lower()]
-    return [int(s.id) for s in matching[:top_k]]
+    q = _normalize_text(mood)
+    matching = [s for s in song_list if q in _normalize_text(s.mood)]
+    if matching:
+        return [int(s.id) for s in matching[:top_k]]
+
+    scores = []
+    for s in song_list:
+        score = difflib.SequenceMatcher(a=q, b=_normalize_text(s.mood)).ratio()
+        scores.append((s, score))
+    scores.sort(key=lambda x: x[1], reverse=True)
+    return [int(s.id) for s, _ in scores[:top_k] if _ > 0.2]

@@ -290,9 +290,10 @@ def main() -> None:
             if results:
                 st.sidebar.markdown("**Found songs:**")
                 for song_id, score in results:
-                    song = songs_df[songs_df['id'] == song_id].iloc[0]
-                    st.sidebar.write(f"🎵 **{song['title']}** ({score:.2f})")
-                    st.sidebar.caption(f"{song['artist']} • {song['genre']}")
+                    song = next((s for s in songs_df if int(s.id) == int(song_id)), None)
+                    if song:
+                        st.sidebar.write(f"🎵 **{song.title}** ({score:.2f})")
+                        st.sidebar.caption(f"{song.artist} • {song.genre}")
             else:
                 st.sidebar.info("No songs found. Try different keywords.")
     
@@ -303,9 +304,10 @@ def main() -> None:
             if results:
                 st.sidebar.markdown("**Genre matches:**")
                 for song_id in results:
-                    song = songs_df[songs_df['id'] == song_id].iloc[0]
-                    st.sidebar.write(f"🎵 {song['title']}")
-                    st.sidebar.caption(f"{song['artist']} • {song['mood']}")
+                    song = next((s for s in songs_df if int(s.id) == int(song_id)), None)
+                    if song:
+                        st.sidebar.write(f"🎵 {song.title}")
+                        st.sidebar.caption(f"{song.artist} • {song.mood}")
             else:
                 st.sidebar.info(f"No {genre_input} songs found.")
     
@@ -316,9 +318,10 @@ def main() -> None:
             if results:
                 st.sidebar.markdown("**Mood matches:**")
                 for song_id in results:
-                    song = songs_df[songs_df['id'] == song_id].iloc[0]
-                    st.sidebar.write(f"🎵 {song['title']}")
-                    st.sidebar.caption(f"{song['artist']} • {song['genre']}")
+                    song = next((s for s in songs_df if int(s.id) == int(song_id)), None)
+                    if song:
+                        st.sidebar.write(f"🎵 {song.title}")
+                        st.sidebar.caption(f"{song.artist} • {song.genre}")
             else:
                 st.sidebar.info(f"No {mood_input} songs found.")
     
