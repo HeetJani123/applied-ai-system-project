@@ -1,24 +1,26 @@
-# Job Application Copilot
+# Music Recommender+
 
 ## Original Project
 
-The original project is the 3rd module whihc is music reccomender system. It ranked songs using simple features like genre and mood. I kept the recommender structure but changed the task to job applications.
+The original project was the module 3 music recommender system. It ranked songs using simple features like genre, mood, and energy.
+
+This submission is a direct extension of that project. I kept the song-ranking core and added a freeform vibe parser, explainable recommendations, and reliability checks so the system is easier to evaluate end to end.
 
 ## What This Project Does
 
-This AI tool helps tailor a resume to a job description. It finds relevant evidence first, then writes draft bullets, a cover letter opening, and interview talking points.
+This AI tool recommends songs from a small catalog based on a listening vibe. It first infers genre, mood, tempo, energy, and texture cues from a short prompt, then ranks songs and explains why each one fits.
 
-Why this matters: job applications take time, and people need clear, role-specific writing support.
+Why this matters: small recommender projects are useful for showing how AI systems can turn a simple scoring rule into a transparent recommendation workflow.
 
 ## System Design
 
 ```mermaid
 flowchart TD
-    IN[User input<br/>resume text or file<br/>job description<br/>company notes] --> EX[Extract and clean text]
-    EX --> RET[Retriever<br/>find relevant evidence]
-    RET --> GEN[Generator<br/>create tailored drafts]
-    GEN --> EVAL[Evaluator<br/>coverage score + checks]
-    EVAL --> OUT[Output in UI]
+    IN[User input<br/>vibe description or sample profile] --> PARSE[Parse preference signals]
+    PARSE --> RET[Retriever<br/>filter matching songs]
+    RET --> SCORE[Scorer<br/>genre + mood + energy + texture]
+    SCORE --> EVAL[Evaluator<br/>coverage + diversity checks]
+    EVAL --> OUT[Output in CLI and Streamlit]
 
     TEST[Automated tests] --> RET
     TEST --> EVAL
@@ -58,10 +60,6 @@ python -m streamlit run src/app.py
 pytest
 ```
 
-## Video Walkthrough
-
-Loom link: https://www.loom.com/share/a344deba570f4c2095e8ad2edb9d88be
-
 ## Sample Inputs and Outputs
 
 ### Example 1
@@ -69,15 +67,14 @@ Loom link: https://www.loom.com/share/a344deba570f4c2095e8ad2edb9d88be
 Input:
 
 ```text
-Resume: Python APIs, backend tests
-Job: Backend Engineer needing Python, FastAPI, testing
+Bright pop and happy workout energy.
 ```
 
 Output:
 
 ```text
-Top matches: Python API work, test automation
-Draft bullet: Built and tested Python API features
+Top matches: Sunrise City, Gym Hero, Rooftop Lights
+Reasons: genre match, mood match, energy closeness
 ```
 
 ### Example 2
@@ -85,36 +82,51 @@ Draft bullet: Built and tested Python API features
 Input:
 
 ```text
-Resume: campaign reports, dashboards, stakeholder updates
-Job: Marketing Analyst needing analytics and reporting
+Chill lofi focus music for studying late at night with soft, acoustic textures.
 ```
 
 Output:
 
 ```text
-Top matches: reporting, dashboards, communication
-Draft bullet: Created dashboard reports and presented insights to stakeholders
+Top matches: Library Rain, Midnight Coding, Focus Flow
+Reasons: genre match, mood match, acoustic texture match
+```
+
+### Example 3
+
+Input:
+
+```text
+Deep intense rock with driving guitars, powerful energy, and a heavy sound.
+```
+
+Output:
+
+```text
+Top matches: Storm Runner, Gym Hero, Night Drive Loop
+Reasons: genre match, mood match, energy closeness
 ```
 
 ## Reliability and Testing
 
 - 4/4 automated tests pass.
-- The app logs key steps (retrieval, analysis, score).
-- Coverage score helps show confidence in grounding.
-- Human review is required before using outputs in a real application.
+- The app logs key steps for loading, parsing, scoring, and evaluation.
+- Coverage and diversity scores make it easier to explain why the shortlist looks good.
+- Human review is still useful because a tiny catalog can overfit to a few obvious matches.
 
 ## Reflection and Ethics (Student Voice)
 
-- Limitation: if resume text is weak, output becomes generic.
-- Bias risk: keyword matching may miss good transferable skills.
-- Misuse risk: users may exaggerate qualifications.
-- Mitigation: show evidence, warnings, and checks; treat output as a draft.
-- Surprise: polished writing can still be weakly grounded when context is poor.
+- Limitation: the catalog is tiny, so the recommender can only model a few taste patterns.
+- Bias risk: genre and mood keywords can overweight obvious matches and ignore quieter fits.
+- Misuse risk: the system may make the recommendations feel more certain than the catalog really supports.
+- Mitigation: show the reasons, surface coverage and diversity checks, and keep the output explainable.
+- Surprise: a simple scoring rule still feels surprisingly smart when the reasons are visible.
 
 AI collaboration notes:
 
-- Helpful: AI suggested a retrieval-first workflow that improved clarity and testing.
-- Flawed: one AI UI suggestion used too much custom HTML/CSS and looked broken in Streamlit.
+- Helpful: AI suggested a retrieval-first workflow that made the recommender easier to test and explain.
+- Helpful: adding a freeform vibe parser made the project feel more like an actual AI extension of the original recommender.
+- Flawed: a pure keyword score can still over-favor one strong attribute, so the ranking needs diversity and coverage checks.
 
 ## Key Files
 
@@ -123,4 +135,3 @@ AI collaboration notes:
 - [Core logic](src/recommender.py)
 - [Tests](tests/test_recommender.py)
 - [Model card](model_card.md)
-

@@ -1,69 +1,41 @@
 import pytest
 
-from src.recommender import analyze_application, retrieve_relevant_evidence
+from src.recommender import analyze_listening_profile, infer_listening_profile, load_songs, recommend_songs
 
 
-def test_retrieve_relevant_evidence_prioritizes_matching_resume_lines():
-    resume_text = """
-    Built Python APIs for internal tools.
-    Managed team calendars and coordinated schedules.
-    Wrote automated tests for backend services.
-    """.strip()
-    job_description = """
-    Backend Engineer
-    Need Python, FastAPI, and test automation.
-    """.strip()
+def test_recommend_songs_prioritizes_matching_pop_profile():
+    profile = infer_listening_profile("Bright pop and happy workout energy.")
+    songs = load_songs()
 
-    evidence, warnings, target_role = retrieve_relevant_evidence(resume_text, job_description)
+    results = recommend_songs(profile, songs, k=3)
 
-    assert target_role == "Backend Engineer"
-    assert warnings == []
-    assert evidence
-    assert any(
-        item.source == "resume" and ("Python APIs" in item.text or "automated tests" in item.text)
-        for item in evidence
-    )
+    assert results
+    assert results[0].song.title == "Sunrise City"
+    assert results[0].song.genre == "pop"
+    assert results[0].score >= results[1].score
 
 
-def test_analyze_application_generates_grounded_advice():
-    resume_text = """
-    Created weekly campaign reports in Excel and dashboards.
-    Presented findings to stakeholders and marketing leads.
-    """.strip()
-    job_description = """
-    Marketing Analyst
-    Looking for analytics, reporting, dashboards, and stakeholder communication.
-    """.strip()
+def test_analyze_listening_profile_generates_grounded_recommendations():
+    analysis = analyze_listening_profile("Chill lofi focus music for studying late at night with soft, acoustic textures.")
 
-    analysis = analyze_application(resume_text, job_description)
-
-    assert analysis.target_role == "Marketing Analyst"
-    assert analysis.coverage_score > 0
-    assert analysis.checks["has_evidence"] is True
-    assert analysis.checks["has_resume_bullets"] is True
-    assert analysis.cover_letter_opening.strip() != ""
-    assert any("dashboard" in bullet.lower() or "stakeholder" in bullet.lower() for bullet in analysis.resume_bullets)
+    assert analysis.profile.favorite_genre == "lofi"
+    assert analysis.profile.favorite_mood == "chill"
+    assert analysis.coverage_score > 0.5
+    assert analysis.checks["has_recommendations"] is True
+    assert analysis.checks["has_coverage"] is True
+    assert analysis.top_matches[0].song.title == "Library Rain"
+    assert any("focus" in point.lower() or "study" in point.lower() for point in analysis.talking_points)
 
 
-def test_analyze_application_is_deterministic_for_same_input():
-    resume_text = """
-    Tutored students, tracked schedules, and coordinated group projects.
-    Delivered presentations and managed deadlines across multiple tasks.
-    """.strip()
-    job_description = """
-    Project Coordinator
-    This role needs organization, scheduling, communication, and leadership.
-    """.strip()
+def test_analyze_listening_profile_is_deterministic_for_same_input():
+    profile_text = "Deep intense rock with driving guitars, powerful energy, and a heavy sound."
 
-    first = analyze_application(resume_text, job_description)
-    second = analyze_application(resume_text, job_description)
+    first = analyze_listening_profile(profile_text)
+    second = analyze_listening_profile(profile_text)
 
     assert first == second
 
 
-def test_analyze_application_rejects_empty_input():
+def test_analyze_listening_profile_rejects_empty_input():
     with pytest.raises(ValueError):
-        analyze_application("", "Some job description")
-
-    with pytest.raises(ValueError):
-        analyze_application("Some resume", "")
+        analyze_listening_profile("")

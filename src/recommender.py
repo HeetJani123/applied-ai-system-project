@@ -1,92 +1,109 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Sequence, Tuple
+from pathlib import Path
+from typing import Any, Dict, List, Sequence, Tuple
+import csv
 import logging
 import re
 
 
 logger = logging.getLogger(__name__)
 
-STOPWORDS = {
-    "a",
-    "an",
-    "and",
-    "at",
-    "be",
-    "by",
-    "for",
-    "from",
-    "in",
-    "is",
-    "it",
-    "of",
-    "on",
-    "or",
-    "the",
-    "to",
-    "with",
-    "you",
-    "your",
-    "role",
-    "job",
-    "position",
-    "candidate",
-    "experience",
+DEFAULT_CATALOG_PATH = Path(__file__).resolve().parents[1] / "data" / "songs.csv"
+
+NUMERIC_FIELDS = {"id", "energy", "tempo_bpm", "valence", "danceability", "acousticness"}
+KNOWN_GENRES = ["indie pop", "synthwave", "ambient", "lofi", "jazz", "rock", "pop"]
+KNOWN_MOODS = ["focused", "happy", "chill", "relaxed", "moody", "intense"]
+ENERGY_HINTS = {
+    "high energy": 0.88,
+    "energetic": 0.88,
+    "upbeat": 0.82,
+    "workout": 0.9,
+    "intense": 0.92,
+    "deep": 0.84,
+    "driving": 0.86,
+    "chill": 0.38,
+    "calm": 0.32,
+    "relaxed": 0.36,
+    "focus": 0.42,
+    "focused": 0.42,
+    "moody": 0.58,
+}
+TEMPO_HINTS = {
+    "fast": 148,
+    "upbeat": 128,
+    "workout": 132,
+    "driving": 150,
+    "slow": 74,
+    "calm": 68,
+    "relaxed": 84,
+    "focus": 80,
+    "lofi": 78,
+    "ambient": 60,
+}
+DANCEABILITY_HINTS = {
+    "dance": 0.86,
+    "groove": 0.78,
+    "club": 0.84,
+    "focus": 0.58,
+    "study": 0.56,
+    "calm": 0.48,
+    "relaxed": 0.52,
+}
+SOUND_HINTS = {
+    "acoustic": "acoustic",
+    "unplugged": "acoustic",
+    "piano": "acoustic",
+    "electronic": "electronic",
+    "synth": "electronic",
+    "neon": "electronic",
 }
 
-SKILL_PHRASES = [
-    "python",
-    "fastapi",
-    "api",
-    "testing",
-    "test automation",
-    "sql",
-    "excel",
-    "dashboard",
-    "dashboards",
-    "stakeholder communication",
-    "project coordination",
-    "project management",
-    "leadership",
-    "presentation",
-    "analytics",
-    "data analysis",
-    "reporting",
-    "communication",
-    "product support",
-    "research",
-    "collaboration",
-    "customer support",
-    "backend",
-    "frontend",
-    "automation",
-]
+
+@dataclass(frozen=True)
+class Song:
+    id: int
+    title: str
+    artist: str
+    genre: str
+    mood: str
+    energy: float
+    tempo_bpm: int
+    valence: float
+    danceability: float
+    acousticness: float
+
+
+@dataclass(frozen=True)
+class ListeningProfile:
+    name: str
+    source_text: str
+    favorite_genre: str | None = None
+    favorite_mood: str | None = None
+    target_energy: float | None = None
+    target_tempo_bpm: int | None = None
+    target_danceability: float | None = None
+    sound_preference: str | None = None
 
 
 @dataclass
-class RetrievedSnippet:
-    """Relevant evidence selected from the resume, job description, or notes."""
-
-    source: str
-    text: str
+class SongRecommendation:
+    song: Song
     score: float
+    reasons: List[str]
 
 
 @dataclass
-class ApplicationAnalysis:
-    """Structured output for the job application copilot."""
-
-    target_role: str
-    key_requirements: List[str]
-    top_evidence: List[RetrievedSnippet]
-    transferable_skills: List[str]
-    resume_bullets: List[str]
-    cover_letter_opening: str
-    interview_talking_points: List[str]
+class RecommendationAnalysis:
+    profile: ListeningProfile
+    top_matches: List[SongRecommendation]
     coverage_score: float
+    diversity_score: float
     warnings: List[str] = field(default_factory=list)
     checks: Dict[str, bool] = field(default_factory=dict)
+    summary: str = ""
+    talking_points: List[str] = field(default_factory=list)
 
 
 def _normalize_text(text: str) -> str:
@@ -97,302 +114,351 @@ def _split_lines(text: str) -> List[str]:
     return [line.strip() for line in text.splitlines() if line.strip()]
 
 
-def _tokenize(text: str) -> List[str]:
-    raw_tokens = re.findall(r"[a-z0-9+.#-]+", text.lower())
-    tokens: List[str] = []
-    for token in raw_tokens:
-        cleaned = token.strip(".,;:!?()[]{}\"'")
-        if cleaned:
-            tokens.append(cleaned)
-    return tokens
+def _matches_phrase(preference: str | None, value: str) -> bool:
+    if not preference:
+        return False
+    preference_text = _normalize_text(preference)
+    value_text = _normalize_text(value)
+    return preference_text == value_text or preference_text in value_text or value_text in preference_text
 
 
-def extract_keywords(text: str, limit: int = 8) -> List[str]:
-    """Extract a compact set of keywords from text."""
+def _first_matching_phrase(text: str, phrases: Sequence[str]) -> str | None:
     normalized = _normalize_text(text)
-    keywords: List[str] = []
-
-    for phrase in SKILL_PHRASES:
-        if phrase in normalized and phrase not in keywords:
-            keywords.append(phrase)
-
-    token_counts: Dict[str, int] = {}
-    for token in _tokenize(text):
-        if len(token) < 3 or token in STOPWORDS:
-            continue
-        token_counts[token] = token_counts.get(token, 0) + 1
-
-    for token, _count in sorted(token_counts.items(), key=lambda item: (-item[1], item[0])):
-        if token not in keywords:
-            keywords.append(token)
-        if len(keywords) >= limit:
-            break
-
-    return keywords[:limit]
+    for phrase in sorted(phrases, key=len, reverse=True):
+        if phrase in normalized:
+            return phrase
+    return None
 
 
-def infer_target_role(job_description: str) -> str:
-    lines = _split_lines(job_description)
-    if not lines:
-        return "target role"
-    first_line = lines[0]
-    if len(first_line) <= 60:
-        return first_line
-    return "target role"
-
-
-def score_evidence(text: str, keywords: Sequence[str]) -> float:
+def _infer_numeric_hint(text: str, hints: Dict[str, float]) -> float | None:
     normalized = _normalize_text(text)
-    score = 0.0
-    for keyword in keywords:
-        if keyword in normalized:
-            score += 2.0 if " " in keyword else 1.0
-    return score
+    for phrase, value in hints.items():
+        if phrase in normalized:
+            return value
+    return None
 
 
-def retrieve_relevant_evidence(
-    resume_text: str,
-    job_description: str,
-    company_notes: str | None = None,
-    limit: int = 5,
-) -> Tuple[List[RetrievedSnippet], List[str], str]:
-    """Retrieve the most relevant resume lines for the role."""
-    job_keywords = extract_keywords(job_description, limit=10)
-    target_role = infer_target_role(job_description)
-    evidence: List[RetrievedSnippet] = []
-    normalized_target_role = _normalize_text(target_role)
-
-    for line in _split_lines(resume_text):
-        score = score_evidence(line, job_keywords)
-        if score > 0:
-            evidence.append(RetrievedSnippet(source="resume", text=line, score=score))
-
-    if company_notes:
-        for line in _split_lines(company_notes):
-            score = score_evidence(line, job_keywords)
-            if score > 0:
-                evidence.append(RetrievedSnippet(source="company_notes", text=line, score=score))
-
-    for line in _split_lines(job_description):
-        normalized_line = _normalize_text(line)
-        if normalized_line == normalized_target_role:
-            continue
-        score = score_evidence(line, job_keywords)
-        if score > 0:
-            evidence.append(RetrievedSnippet(source="job_description", text=line, score=score + 0.5))
-
-    evidence.sort(key=lambda item: (-item.score, item.source, item.text))
-    warnings: List[str] = []
-
-    if not evidence:
-        warnings.append("No strong matches were found, so the copilot fell back to broad resume guidance.")
-        fallback_lines = _split_lines(resume_text)[:limit]
-        evidence = [RetrievedSnippet(source="resume", text=line, score=0.1) for line in fallback_lines]
-
-    return evidence[:limit], warnings, target_role
+def _infer_tempo_hint(text: str) -> int | None:
+    normalized = _normalize_text(text)
+    for phrase, value in TEMPO_HINTS.items():
+        if phrase in normalized:
+            return value
+    return None
 
 
-def _find_transferable_skills(resume_text: str, job_description: str) -> List[str]:
-    resume_keywords = set(extract_keywords(resume_text, limit=12))
-    job_keywords = set(extract_keywords(job_description, limit=12))
-    overlaps = sorted(resume_keywords & job_keywords)
-    if overlaps:
-        return overlaps[:5]
-
-    resume_tokens = extract_keywords(resume_text, limit=12)
-    return resume_tokens[:5]
+def _infer_danceability_hint(text: str) -> float | None:
+    normalized = _normalize_text(text)
+    for phrase, value in DANCEABILITY_HINTS.items():
+        if phrase in normalized:
+            return value
+    return None
 
 
-def draft_application_advice(
-    target_role: str,
-    evidence: Sequence[RetrievedSnippet],
-    job_description: str,
-    company_notes: str | None = None,
-) -> Tuple[List[str], str, List[str]]:
-    """Turn retrieved evidence into tailored application guidance."""
-    job_keywords = extract_keywords(job_description, limit=8)
-    evidence_keywords = []
-    for item in evidence:
-        evidence_keywords.extend(extract_keywords(item.text, limit=4))
+def _infer_sound_preference(text: str) -> str | None:
+    normalized = _normalize_text(text)
+    for phrase, sound_preference in SOUND_HINTS.items():
+        if phrase in normalized:
+            return sound_preference
+    return None
 
-    transferable_skills = sorted(set(evidence_keywords) & set(job_keywords))
-    if not transferable_skills:
-        transferable_skills = _find_transferable_skills("\n".join(item.text for item in evidence), job_description)
 
-    top_requirements = job_keywords[:3] if job_keywords else ["relevant experience"]
+def infer_listening_profile(profile_text: str) -> ListeningProfile:
+    if not profile_text.strip():
+        raise ValueError("profile_text must not be empty")
 
-    bullets: List[str] = []
-    for snippet in evidence[:3]:
-        bullets.append(
-            f"Tailor this experience for {target_role}: {snippet.text}"
-        )
+    lines = _split_lines(profile_text)
+    profile_name = lines[0] if lines else "listening profile"
+    favorite_genre = _first_matching_phrase(profile_text, KNOWN_GENRES)
+    favorite_mood = _first_matching_phrase(profile_text, KNOWN_MOODS)
+    target_energy = _infer_numeric_hint(profile_text, ENERGY_HINTS)
+    target_tempo_bpm = _infer_tempo_hint(profile_text)
+    target_danceability = _infer_danceability_hint(profile_text)
+    sound_preference = _infer_sound_preference(profile_text)
 
-    if not bullets:
-        bullets.append(f"Emphasize relevant accomplishments that match the {target_role} requirements.")
-
-    opening_focus = ", ".join(top_requirements[:2])
-    cover_letter_opening = (
-        f"I am excited to apply for the {target_role} role because my background aligns with {opening_focus}."
+    return ListeningProfile(
+        name=profile_name,
+        source_text=profile_text,
+        favorite_genre=favorite_genre,
+        favorite_mood=favorite_mood,
+        target_energy=target_energy,
+        target_tempo_bpm=target_tempo_bpm,
+        target_danceability=target_danceability,
+        sound_preference=sound_preference,
     )
 
-    if company_notes:
-        company_focus = extract_keywords(company_notes, limit=3)
-        if company_focus:
-            cover_letter_opening += f" I also noticed the company values {', '.join(company_focus)}."
 
-    talking_points = [
-        f"Be ready to discuss how you have used {skill} in practice." for skill in transferable_skills[:3]
-    ]
+def load_songs(csv_path: str | Path = DEFAULT_CATALOG_PATH) -> List[Song]:
+    """Load songs from the project catalog."""
+    songs: List[Song] = []
+    with open(csv_path, newline="", encoding="utf-8") as file_handle:
+        reader = csv.DictReader(file_handle)
+        for row in reader:
+            parsed: Dict[str, Any] = {}
+            for key, value in row.items():
+                if key in NUMERIC_FIELDS and value != "":
+                    if key == "id":
+                        parsed[key] = int(value)
+                    elif key == "tempo_bpm":
+                        parsed[key] = int(float(value))
+                    else:
+                        parsed[key] = float(value)
+                else:
+                    parsed[key] = value
+
+            songs.append(
+                Song(
+                    id=parsed["id"],
+                    title=parsed["title"],
+                    artist=parsed["artist"],
+                    genre=parsed["genre"],
+                    mood=parsed["mood"],
+                    energy=parsed["energy"],
+                    tempo_bpm=parsed["tempo_bpm"],
+                    valence=parsed["valence"],
+                    danceability=parsed["danceability"],
+                    acousticness=parsed["acousticness"],
+                )
+            )
+
+    logger.info("Loaded %d songs from %s", len(songs), csv_path)
+    return songs
+
+
+def _score_closeness(actual: float, target: float, max_points: float, span: float) -> float:
+    similarity = max(0.0, 1.0 - abs(actual - target) / span)
+    return max_points * similarity
+
+
+def score_song(profile: ListeningProfile, song: Song) -> Tuple[float, List[str]]:
+    score = 0.0
+    reasons: List[str] = []
+
+    if _matches_phrase(profile.favorite_genre, song.genre):
+        score += 2.0
+        reasons.append("genre match (+2.0)")
+
+    if _matches_phrase(profile.favorite_mood, song.mood):
+        score += 1.5
+        reasons.append("mood match (+1.5)")
+
+    if profile.target_energy is not None:
+        energy_points = _score_closeness(song.energy, profile.target_energy, max_points=2.5, span=1.0)
+        score += energy_points
+        reasons.append(f"energy closeness (+{energy_points:.2f})")
+
+    if profile.target_tempo_bpm is not None:
+        tempo_points = _score_closeness(song.tempo_bpm, profile.target_tempo_bpm, max_points=0.75, span=140.0)
+        score += tempo_points
+        reasons.append(f"tempo closeness (+{tempo_points:.2f})")
+
+    if profile.target_danceability is not None:
+        dance_points = _score_closeness(song.danceability, profile.target_danceability, max_points=0.5, span=1.0)
+        score += dance_points
+        reasons.append(f"danceability closeness (+{dance_points:.2f})")
+
+    if profile.sound_preference == "acoustic":
+        acoustic_points = 0.75 * song.acousticness
+        score += acoustic_points
+        reasons.append(f"acoustic texture match (+{acoustic_points:.2f})")
+    elif profile.sound_preference == "electronic":
+        electronic_points = 0.75 * (1.0 - song.acousticness)
+        score += electronic_points
+        reasons.append(f"electronic texture match (+{electronic_points:.2f})")
+
+    return score, reasons
+
+
+def retrieve_candidate_songs(profile: ListeningProfile, songs: Sequence[Song]) -> Tuple[List[Song], List[str]]:
+    candidates: List[Song] = []
+    for song in songs:
+        signal_match = False
+        if _matches_phrase(profile.favorite_genre, song.genre):
+            signal_match = True
+        if _matches_phrase(profile.favorite_mood, song.mood):
+            signal_match = True
+        if profile.sound_preference == "acoustic" and song.acousticness >= 0.55:
+            signal_match = True
+        if profile.sound_preference == "electronic" and song.acousticness <= 0.45:
+            signal_match = True
+        if profile.target_energy is not None and abs(song.energy - profile.target_energy) <= 0.28:
+            signal_match = True
+        if profile.target_tempo_bpm is not None and abs(song.tempo_bpm - profile.target_tempo_bpm) <= 40:
+            signal_match = True
+        if profile.target_danceability is not None and abs(song.danceability - profile.target_danceability) <= 0.22:
+            signal_match = True
+
+        if signal_match:
+            candidates.append(song)
+
+    warnings: List[str] = []
+    if not candidates:
+        warnings.append("No strong signal match was found, so the recommender scored the full catalog.")
+        candidates = list(songs)
+
+    return candidates, warnings
+
+
+def recommend_songs(profile: ListeningProfile, songs: Sequence[Song], k: int = 5) -> List[SongRecommendation]:
+    scored: List[SongRecommendation] = []
+    for song in songs:
+        score, reasons = score_song(profile, song)
+        scored.append(SongRecommendation(song=song, score=score, reasons=reasons))
+
+    scored.sort(key=lambda item: (-item.score, item.song.artist, item.song.title))
+    return scored[:k]
+
+
+def _coverage_score(profile: ListeningProfile, recommendations: Sequence[SongRecommendation]) -> float:
+    top_songs = [item.song for item in recommendations]
+    total_axes = 0
+    hits = 0
+
+    if profile.favorite_genre is not None:
+        total_axes += 1
+        if any(_matches_phrase(profile.favorite_genre, song.genre) for song in top_songs):
+            hits += 1
+
+    if profile.favorite_mood is not None:
+        total_axes += 1
+        if any(_matches_phrase(profile.favorite_mood, song.mood) for song in top_songs):
+            hits += 1
+
+    if profile.target_energy is not None:
+        total_axes += 1
+        if any(abs(song.energy - profile.target_energy) <= 0.18 for song in top_songs):
+            hits += 1
+
+    if profile.target_tempo_bpm is not None:
+        total_axes += 1
+        if any(abs(song.tempo_bpm - profile.target_tempo_bpm) <= 25 for song in top_songs):
+            hits += 1
+
+    if profile.target_danceability is not None:
+        total_axes += 1
+        if any(abs(song.danceability - profile.target_danceability) <= 0.12 for song in top_songs):
+            hits += 1
+
+    if profile.sound_preference is not None:
+        total_axes += 1
+        if profile.sound_preference == "acoustic" and any(song.acousticness >= 0.55 for song in top_songs):
+            hits += 1
+        if profile.sound_preference == "electronic" and any(song.acousticness <= 0.45 for song in top_songs):
+            hits += 1
+
+    return hits / max(1, total_axes)
+
+
+def _diversity_score(recommendations: Sequence[SongRecommendation]) -> float:
+    if not recommendations:
+        return 0.0
+
+    top_songs = [item.song for item in recommendations]
+    unique_genres = len({song.genre for song in top_songs})
+    unique_artists = len({song.artist for song in top_songs})
+    possible = min(len(top_songs), 5)
+    return min(1.0, (unique_genres + unique_artists) / (2.0 * possible))
+
+
+def _build_talking_points(profile: ListeningProfile, recommendations: Sequence[SongRecommendation]) -> List[str]:
+    talking_points: List[str] = []
+    for item in recommendations[:3]:
+        reason_preview = "; ".join(item.reasons[:2]) if item.reasons else "broad catalog fit"
+        talking_points.append(
+            f"Use {item.song.title} by {item.song.artist} as an anchor because it shows {reason_preview}."
+        )
+
     if not talking_points:
-        talking_points = [
-            "Be ready to explain a recent project, the tools you used, and the results you delivered.",
-        ]
+        talking_points.append(
+            f"Build the playlist around {profile.name.lower()} with a mix of genre, mood, and energy matches."
+        )
 
-    return bullets, cover_letter_opening, talking_points
+    return talking_points
 
 
-def evaluate_output(
-    evidence: Sequence[RetrievedSnippet],
-    job_description: str,
-    resume_bullets: Sequence[str],
-    cover_letter_opening: str,
-) -> Tuple[float, Dict[str, bool], List[str]]:
-    """Check whether the generated guidance is grounded and complete."""
-    job_keywords = extract_keywords(job_description, limit=8)
-    evidence_text = " ".join(item.text for item in evidence)
-    evidence_keywords = set(extract_keywords(evidence_text, limit=12))
-    covered_keywords = [keyword for keyword in job_keywords if keyword in evidence_keywords]
+def analyze_listening_profile(
+    profile_text: str,
+    songs: Sequence[Song] | None = None,
+    k: int = 5,
+) -> RecommendationAnalysis:
+    profile = infer_listening_profile(profile_text)
+    catalog = list(songs) if songs is not None else load_songs()
 
-    coverage_score = len(covered_keywords) / max(1, len(job_keywords))
+    candidates, warnings = retrieve_candidate_songs(profile, catalog)
+    recommendations = recommend_songs(profile, candidates, k=k)
+    coverage_score = _coverage_score(profile, recommendations)
+    diversity_score = _diversity_score(recommendations)
+
     checks = {
-        "has_evidence": bool(evidence),
-        "has_resume_bullets": bool(resume_bullets),
-        "has_cover_letter_opening": bool(cover_letter_opening.strip()),
-        "has_keyword_coverage": coverage_score >= 0.35,
+        "has_recommendations": bool(recommendations),
+        "has_genre_fit": not profile.favorite_genre or any(
+            _matches_phrase(profile.favorite_genre, item.song.genre) for item in recommendations
+        ),
+        "has_mood_fit": not profile.favorite_mood or any(
+            _matches_phrase(profile.favorite_mood, item.song.mood) for item in recommendations
+        ),
+        "has_coverage": coverage_score >= 0.5,
+        "has_diversity": diversity_score >= 0.35,
     }
 
-    warnings: List[str] = []
-    if not checks["has_keyword_coverage"]:
-        warnings.append("Job keyword coverage is low, so the advice may need more resume detail.")
+    if not checks["has_coverage"]:
+        warnings.append("The top songs cover only part of the requested vibe, so the shortlist may need refinement.")
+    if not checks["has_diversity"]:
+        warnings.append("The shortlist is narrow, so it may be too similar for a playlist mix.")
 
-    return coverage_score, checks, warnings
+    summary = (
+        f"Recommended {len(recommendations)} songs for {profile.name} with "
+        f"{coverage_score:.0%} preference coverage and {diversity_score:.0%} diversity."
+    )
+
+    return RecommendationAnalysis(
+        profile=profile,
+        top_matches=list(recommendations),
+        coverage_score=coverage_score,
+        diversity_score=diversity_score,
+        warnings=warnings,
+        checks=checks,
+        summary=summary,
+        talking_points=_build_talking_points(profile, recommendations),
+    )
 
 
-class JobApplicationCopilot:
-    """Plan-act-check workflow for job application support."""
+class MusicRecommender:
+    """Plan-act-check workflow for music recommendation support."""
 
-    def __init__(self, logger_instance: logging.Logger | None = None):
+    def __init__(self, songs: Sequence[Song], logger_instance: logging.Logger | None = None):
+        self.songs = list(songs)
         self.logger = logger_instance or logger
 
-    def analyze(
-        self,
-        resume_text: str,
-        job_description: str,
-        company_notes: str | None = None,
-    ) -> ApplicationAnalysis:
-        if not resume_text.strip():
-            raise ValueError("resume_text must not be empty")
-        if not job_description.strip():
-            raise ValueError("job_description must not be empty")
-
-        self.logger.info("Starting job application analysis")
-
-        evidence, warnings, target_role = retrieve_relevant_evidence(
-            resume_text=resume_text,
-            job_description=job_description,
-            company_notes=company_notes,
-        )
-        self.logger.info("Retrieved %d evidence items", len(evidence))
-
-        bullets, cover_letter_opening, talking_points = draft_application_advice(
-            target_role=target_role,
-            evidence=evidence,
-            job_description=job_description,
-            company_notes=company_notes,
-        )
-
-        coverage_score, checks, evaluation_warnings = evaluate_output(
-            evidence=evidence,
-            job_description=job_description,
-            resume_bullets=bullets,
-            cover_letter_opening=cover_letter_opening,
-        )
-
-        warnings.extend(evaluation_warnings)
-        transferable_skills = _find_transferable_skills(resume_text, job_description)
-        key_requirements = extract_keywords(job_description, limit=6)
-
-        if not checks["has_keyword_coverage"] and evidence:
-            self.logger.info("Coverage is weak; expanding evidence in a repair pass")
-            expanded_lines = _split_lines(resume_text)[:5]
-            for line in expanded_lines:
-                if line not in [item.text for item in evidence]:
-                    evidence.append(RetrievedSnippet(source="resume", text=line, score=0.1))
-            bullets, cover_letter_opening, talking_points = draft_application_advice(
-                target_role=target_role,
-                evidence=evidence,
-                job_description=job_description,
-                company_notes=company_notes,
-            )
-            coverage_score, checks, evaluation_warnings = evaluate_output(
-                evidence=evidence,
-                job_description=job_description,
-                resume_bullets=bullets,
-                cover_letter_opening=cover_letter_opening,
-            )
-            warnings.extend(evaluation_warnings)
-
-        self.logger.info("Finished analysis with coverage score %.2f", coverage_score)
-
-        return ApplicationAnalysis(
-            target_role=target_role,
-            key_requirements=key_requirements,
-            top_evidence=list(evidence),
-            transferable_skills=transferable_skills,
-            resume_bullets=bullets,
-            cover_letter_opening=cover_letter_opening,
-            interview_talking_points=talking_points,
-            coverage_score=coverage_score,
-            warnings=warnings,
-            checks=checks,
-        )
+    def analyze(self, profile_text: str, k: int = 5) -> RecommendationAnalysis:
+        self.logger.info("Starting music recommendation analysis")
+        return analyze_listening_profile(profile_text, self.songs, k=k)
 
 
-def format_analysis(analysis: ApplicationAnalysis) -> str:
-    """Format the analysis for CLI output."""
-    lines = [f"Target role: {analysis.target_role}"]
-    lines.append(f"Coverage score: {analysis.coverage_score:.2f}")
-    lines.append(f"Key requirements: {', '.join(analysis.key_requirements) if analysis.key_requirements else 'none found'}")
-    lines.append("")
-    lines.append("Top evidence:")
-    for item in analysis.top_evidence:
-        lines.append(f"- [{item.source}] {item.text}")
-    lines.append("")
-    lines.append("Suggested resume bullets:")
-    for bullet in analysis.resume_bullets:
-        lines.append(f"- {bullet}")
-    lines.append("")
-    lines.append(f"Cover letter opening: {analysis.cover_letter_opening}")
-    lines.append("")
-    lines.append("Interview talking points:")
-    for point in analysis.interview_talking_points:
+def format_analysis(analysis: RecommendationAnalysis) -> str:
+    lines = [
+        f"Listening profile: {analysis.profile.name}",
+        f"Coverage score: {analysis.coverage_score:.2f}",
+        f"Diversity score: {analysis.diversity_score:.2f}",
+        "",
+        "Top matches:",
+    ]
+
+    for index, item in enumerate(analysis.top_matches, start=1):
+        lines.append(f"{index}. {item.song.title} by {item.song.artist}")
+        lines.append(f"   Genre: {item.song.genre} | Mood: {item.song.mood} | Score: {item.score:.2f}")
+        lines.append(f"   Reasons: {'; '.join(item.reasons) if item.reasons else 'no direct feature match'}")
+
+    lines.extend(["", "Playlist notes:"])
+    for point in analysis.talking_points:
         lines.append(f"- {point}")
+
     if analysis.warnings:
-        lines.append("")
-        lines.append("Warnings:")
+        lines.extend(["", "Warnings:"])
         for warning in analysis.warnings:
             lines.append(f"- {warning}")
-    lines.append("")
-    lines.append("Checks:")
+
+    lines.extend(["", "Checks:"])
     for check_name, passed in analysis.checks.items():
         lines.append(f"- {check_name}: {'pass' if passed else 'fail'}")
+
     return "\n".join(lines)
-
-
-def analyze_application(resume_text: str, job_description: str, company_notes: str | None = None) -> ApplicationAnalysis:
-    """Convenience wrapper for the main workflow."""
-    return JobApplicationCopilot().analyze(
-        resume_text=resume_text,
-        job_description=job_description,
-        company_notes=company_notes,
-    )

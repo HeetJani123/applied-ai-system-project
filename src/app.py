@@ -1,20 +1,13 @@
-"""Streamlit UI for the Job Application Copilot."""
+"""Streamlit UI for the music recommender extension."""
 
 from __future__ import annotations
 
 import logging
 from textwrap import dedent
-from typing import Optional
 
 import streamlit as st
-from pypdf import PdfReader
 
-try:
-    from docx import Document  # type: ignore
-except Exception:  # pragma: no cover - optional dependency fallback
-    Document = None
-
-from src.recommender import analyze_application
+from src.recommender import analyze_listening_profile
 
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
@@ -22,64 +15,34 @@ logger = logging.getLogger(__name__)
 
 
 st.set_page_config(
-    page_title="Job Application Copilot",
-    page_icon="✨",
+    page_title="Music Recommender+",
+    page_icon="🎧",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
 
 SAMPLE_SCENARIOS = {
-    "Software Engineer": {
-        "resume": dedent(
+    "High-Energy Pop": {
+        "profile": dedent(
             """
-            Built Python APIs for internal tools.
-            Wrote automated tests for backend services.
-            Collaborated with product and design teams to ship features.
+            Bright pop for a workout with happy hooks, fast tempo, and strong energy.
             """
         ).strip(),
-        "job": dedent(
-            """
-            Backend Engineer
-
-            We are looking for a backend engineer with Python, FastAPI, and test automation experience.
-            The role values clear communication and reliable delivery.
-            """
-        ).strip(),
-        "notes": "We value collaboration, reliable delivery, and continuous learning.",
     },
-    "Marketing Analyst": {
-        "resume": dedent(
+    "Chill Lofi": {
+        "profile": dedent(
             """
-            Created weekly campaign reports in Excel and dashboards.
-            Presented findings to stakeholders and marketing leads.
-            Improved reporting workflows with better organization.
+            Chill lofi focus music for studying late at night with soft, acoustic textures.
             """
         ).strip(),
-        "job": dedent(
-            """
-            Marketing Analyst
-
-            Looking for a candidate with analytics, reporting, dashboards, and stakeholder communication skills.
-            """
-        ).strip(),
-        "notes": "The team values curiosity, clarity, and strong communication.",
     },
-    "Project Coordinator": {
-        "resume": dedent(
+    "Deep Intense Rock": {
+        "profile": dedent(
             """
-            Tutored students, tracked schedules, and coordinated group projects.
-            Delivered presentations and managed deadlines across multiple tasks.
-            """
-        ).strip(),
-        "job": dedent(
-            """
-            Project Coordinator
-
-            This role needs organization, scheduling, communication, and leadership.
+            Deep intense rock with driving guitars, powerful energy, and a heavy sound.
             """
         ).strip(),
-        "notes": "The team is collaborative and values clear communication.",
     },
 }
 
@@ -89,23 +52,23 @@ def inject_styles() -> None:
         """
         <style>
         :root {
-            --bg-a: #08111f;
-            --bg-b: #0f1a30;
-            --bg-c: #172443;
-            --panel: rgba(13, 20, 38, 0.82);
-            --panel-strong: rgba(17, 26, 49, 0.96);
+            --bg-a: #07131b;
+            --bg-b: #0d1f2b;
+            --bg-c: #172f36;
+            --panel: rgba(11, 20, 27, 0.82);
+            --panel-strong: rgba(15, 25, 33, 0.96);
             --border: rgba(255, 255, 255, 0.08);
-            --text: #f4f7ff;
-            --muted: rgba(244, 247, 255, 0.70);
-            --accent: #75e6ff;
-            --accent-2: #9b7bff;
-            --accent-3: #2dd4bf;
+            --text: #f3f8fb;
+            --muted: rgba(243, 248, 251, 0.72);
+            --accent: #7be8c7;
+            --accent-2: #78c7ff;
+            --accent-3: #f1b86a;
         }
 
         .stApp {
             background:
-                radial-gradient(circle at 12% 10%, rgba(117, 230, 255, 0.16), transparent 26%),
-                radial-gradient(circle at 92% 8%, rgba(155, 123, 255, 0.18), transparent 20%),
+                radial-gradient(circle at 12% 10%, rgba(123, 232, 199, 0.16), transparent 26%),
+                radial-gradient(circle at 92% 8%, rgba(120, 199, 255, 0.18), transparent 20%),
                 linear-gradient(180deg, var(--bg-a) 0%, var(--bg-b) 50%, var(--bg-c) 100%);
             color: var(--text);
         }
@@ -116,7 +79,7 @@ def inject_styles() -> None:
         }
 
         [data-testid="stSidebar"] {
-            background: linear-gradient(180deg, rgba(7, 12, 24, 0.98), rgba(10, 16, 31, 0.96));
+            background: linear-gradient(180deg, rgba(7, 12, 18, 0.98), rgba(10, 16, 23, 0.96));
             border-right: 1px solid var(--border);
         }
 
@@ -128,7 +91,7 @@ def inject_styles() -> None:
             border: 1px solid var(--border);
             border-radius: 30px;
             padding: 1.5rem 1.6rem;
-            background: linear-gradient(135deg, rgba(19, 29, 56, 0.94), rgba(9, 14, 28, 0.88));
+            background: linear-gradient(135deg, rgba(17, 33, 40, 0.94), rgba(9, 16, 23, 0.88));
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.32);
         }
 
@@ -136,8 +99,8 @@ def inject_styles() -> None:
             display: inline-block;
             padding: 0.35rem 0.75rem;
             border-radius: 999px;
-            background: rgba(117, 230, 255, 0.10);
-            color: #c8f8ff;
+            background: rgba(123, 232, 199, 0.10);
+            color: #d7fff3;
             font-size: 0.80rem;
             letter-spacing: 0.12em;
             text-transform: uppercase;
@@ -174,7 +137,7 @@ def inject_styles() -> None:
         .section-card {
             border: 1px solid var(--border);
             border-radius: 24px;
-            background: rgba(11, 18, 33, 0.78);
+            background: rgba(11, 18, 27, 0.78);
             box-shadow: 0 16px 46px rgba(0, 0, 0, 0.2);
         }
 
@@ -185,20 +148,6 @@ def inject_styles() -> None:
             color: var(--text);
         }
 
-        .metric-row {
-            border: 1px solid var(--border);
-            border-radius: 22px;
-            background: rgba(255, 255, 255, 0.04);
-            padding: 0.3rem;
-        }
-
-        .output-box {
-            border: 1px solid rgba(117, 230, 255, 0.14);
-            border-radius: 18px;
-            background: rgba(117, 230, 255, 0.05);
-            padding: 0.95rem 1rem;
-        }
-
         .small-note {
             color: var(--muted);
             font-size: 0.88rem;
@@ -207,7 +156,6 @@ def inject_styles() -> None:
 
         .stTextArea textarea,
         .stSelectbox div[data-baseweb="select"] > div,
-        .stFileUploader section,
         .stNumberInput input {
             border-radius: 16px !important;
         }
@@ -219,7 +167,7 @@ def inject_styles() -> None:
             background: linear-gradient(135deg, var(--accent), var(--accent-2));
             color: #07121f;
             font-weight: 800;
-            box-shadow: 0 12px 28px rgba(155, 123, 255, 0.28);
+            box-shadow: 0 12px 28px rgba(123, 232, 199, 0.28);
         }
 
         .stTabs [data-baseweb="tab-list"] {
@@ -234,8 +182,8 @@ def inject_styles() -> None:
         }
 
         .stTabs [aria-selected="true"] {
-            background: rgba(117, 230, 255, 0.13) !important;
-            border-color: rgba(117, 230, 255, 0.25) !important;
+            background: rgba(123, 232, 199, 0.13) !important;
+            border-color: rgba(123, 232, 199, 0.25) !important;
         }
         </style>
         """,
@@ -243,57 +191,23 @@ def inject_styles() -> None:
     )
 
 
-def extract_resume_text(uploaded_file) -> str:
-    """Extract plain text from an uploaded resume file."""
-    if uploaded_file is None:
-        return ""
-
-    file_name = uploaded_file.name.lower()
-    logger.info("Extracting resume text from %s", file_name)
-
-    if file_name.endswith(".txt"):
-        return uploaded_file.getvalue().decode("utf-8", errors="ignore").strip()
-
-    if file_name.endswith(".pdf"):
-        reader = PdfReader(uploaded_file)
-        pages = [page.extract_text() or "" for page in reader.pages]
-        return "\n".join(part.strip() for part in pages if part.strip()).strip()
-
-    if file_name.endswith(".docx"):
-        if Document is None:
-            raise ValueError("DOCX support is unavailable in this environment")
-        document = Document(uploaded_file)
-        paragraphs = [paragraph.text.strip() for paragraph in document.paragraphs if paragraph.text.strip()]
-        return "\n".join(paragraphs).strip()
-
-    raise ValueError("Unsupported file type. Upload a .pdf, .txt, or .docx file.")
-
-
-def upload_signature(uploaded_file) -> tuple[str, int]:
-    """Create a lightweight signature so repeated reruns do not reprocess the same file."""
-    return uploaded_file.name, uploaded_file.size
-
-
 def load_sample(name: str) -> None:
     sample = SAMPLE_SCENARIOS[name]
-    st.session_state.resume_text = sample["resume"]
-    st.session_state.job_description = sample["job"]
-    st.session_state.company_notes = sample["notes"]
+    st.session_state.profile_text = sample["profile"]
 
 
 def render_hero() -> None:
     st.markdown(
         """
         <div class="hero">
-            <span class="eyebrow">Job Application Copilot</span>
-            <h1>Turn a resume into tailored application material.</h1>
+            <span class="eyebrow">Music Recommender Extension</span>
+            <h1>Turn a listening vibe into explainable song picks.</h1>
             <p>
-                Upload a resume or paste text, pair it with a job description, and the copilot will retrieve the
-                strongest evidence first, then draft grounded bullet rewrites, a cover letter opening, and interview
-                talking points.
+                Describe the mood you want, and the recommender will infer genre, energy, tempo, and texture signals
+                first, then rank songs from the original catalog with coverage and diversity checks.
             </p>
             <span class="mini-chip">Retrieval first</span>
-            <span class="mini-chip">Guardrailed output</span>
+            <span class="mini-chip">Explainable ranking</span>
             <span class="mini-chip">Reliability checks</span>
         </div>
         """,
@@ -304,10 +218,10 @@ def render_hero() -> None:
 def render_quick_stats(analysis) -> None:
     cols = st.columns(4)
     stats = [
-        ("Target role", analysis.target_role),
+        ("Genre", analysis.profile.favorite_genre or "inferred"),
         ("Coverage", f"{analysis.coverage_score:.2f}"),
-        ("Evidence items", str(len(analysis.top_evidence))),
-        ("Transferable skills", str(len(analysis.transferable_skills))),
+        ("Diversity", f"{analysis.diversity_score:.2f}"),
+        ("Top songs", str(len(analysis.top_matches))),
     ]
     for col, (label, value) in zip(cols, stats):
         with col:
@@ -321,12 +235,8 @@ def main() -> None:
 
     st.markdown("<div style='height: 1rem;'></div>", unsafe_allow_html=True)
 
-    if "resume_text" not in st.session_state:
-        load_sample("Software Engineer")
-    if "job_description" not in st.session_state:
-        load_sample("Software Engineer")
-    if "company_notes" not in st.session_state:
-        load_sample("Software Engineer")
+    if "profile_text" not in st.session_state:
+        load_sample("High-Energy Pop")
 
     sidebar_choice = st.sidebar.selectbox("Load a sample scenario", list(SAMPLE_SCENARIOS.keys()))
     if st.sidebar.button("Load sample into editor"):
@@ -338,8 +248,8 @@ def main() -> None:
         <div class="section-card" style="padding: 1rem;">
           <div class="section-title">How to use it</div>
           <div class="small-note">
-            Upload a resume, paste a job description, and optionally add company notes. The app extracts text from
-            the file and fills the resume box for you.
+            Write a short vibe description, or load one of the sample profiles. The parser infers genre, mood,
+            energy, tempo, and texture cues before ranking the catalog.
           </div>
         </div>
         """,
@@ -351,59 +261,29 @@ def main() -> None:
     with left:
         st.markdown('<div class="section-card" style="padding: 1rem 1rem 0.9rem 1rem;">', unsafe_allow_html=True)
         st.markdown('<div class="section-title">Input workspace</div>', unsafe_allow_html=True)
-        uploaded_resume = st.file_uploader(
-            "Upload a resume",
-            type=["pdf", "txt", "docx"],
-            help="Supported formats: PDF, TXT, DOCX",
-        )
-        if uploaded_resume is not None:
-            try:
-                signature = upload_signature(uploaded_resume)
-                if st.session_state.get("resume_upload_signature") != signature:
-                    extracted_text = extract_resume_text(uploaded_resume)
-                    st.session_state.resume_upload_signature = signature
-                    if extracted_text:
-                        st.session_state.resume_text = extracted_text
-                        st.success(f"Loaded {uploaded_resume.name} into the resume field.")
-                    else:
-                        st.warning("The uploaded file did not contain readable text.")
-            except Exception as exc:
-                st.error(f"Could not read the uploaded resume: {exc}")
-
-        with st.form("copilot_form"):
-            resume_text = st.text_area(
-                "Resume text",
-                value=st.session_state.resume_text,
-                height=240,
-                placeholder="Paste the user's resume or upload a file above.",
-            )
-            job_description = st.text_area(
-                "Job description",
-                value=st.session_state.job_description,
+        with st.form("recommendation_form"):
+            profile_text = st.text_area(
+                "Describe the listening vibe",
+                value=st.session_state.profile_text,
                 height=220,
-                placeholder="Paste the target job description here.",
+                placeholder="Example: Bright pop for a workout with happy hooks, fast tempo, and strong energy.",
             )
-            company_notes = st.text_area(
-                "Optional company notes",
-                value=st.session_state.company_notes,
-                height=120,
-                placeholder="Add company values, mission, or recruiter notes.",
-            )
-            submitted = st.form_submit_button("Generate application plan")
+            submitted = st.form_submit_button("Generate recommendations")
         st.markdown("</div>", unsafe_allow_html=True)
 
     with right:
         st.markdown('<div class="section-card" style="padding: 1rem;">', unsafe_allow_html=True)
         st.markdown('<div class="section-title">What the AI returns</div>', unsafe_allow_html=True)
         st.markdown(
-            "<div class='small-note'>The copilot retrieves relevant evidence first, then drafts grounded suggestions and checks coverage before presenting the result.</div>",
+            "<div class='small-note'>The recommender infers preference signals, ranks the catalog, and then checks whether the shortlist actually matches the requested vibe.</div>",
             unsafe_allow_html=True,
         )
         st.markdown("</div>", unsafe_allow_html=True)
 
     if submitted:
-        analysis = analyze_application(resume_text, job_description, company_notes or None)
+        analysis = analyze_listening_profile(profile_text)
         st.session_state.latest_analysis = analysis
+        st.session_state.profile_text = profile_text
 
     analysis = st.session_state.get("latest_analysis")
     if analysis:
@@ -411,28 +291,26 @@ def main() -> None:
         render_quick_stats(analysis)
 
         st.markdown("<div style='height: 0.7rem;'></div>", unsafe_allow_html=True)
-        draft_tab, evidence_tab, reliability_tab = st.tabs(["Draft", "Evidence", "Reliability"])
+        playlist_tab, evidence_tab, reliability_tab = st.tabs(["Playlist", "Evidence", "Reliability"])
 
-        with draft_tab:
+        with playlist_tab:
             st.markdown('<div class="section-card" style="padding: 1rem;">', unsafe_allow_html=True)
-            st.subheader("Candidate-ready output")
-            st.markdown("**Cover letter opening**")
-            st.info(analysis.cover_letter_opening)
-            st.markdown("**Suggested resume bullets**")
-            for bullet in analysis.resume_bullets:
-                st.markdown(f"- {bullet}")
-            st.markdown("**Interview talking points**")
-            for point in analysis.interview_talking_points:
-                st.markdown(f"- {point}")
+            st.subheader("Playlist-ready output")
+            st.markdown(f"**Summary**  \n{analysis.summary}")
+            st.markdown("**Recommended songs**")
+            for match in analysis.top_matches:
+                st.markdown(f"- {match.song.title} by {match.song.artist} ({match.song.genre}, {match.song.mood})")
             st.markdown("</div>", unsafe_allow_html=True)
 
         with evidence_tab:
             st.markdown('<div class="section-card" style="padding: 1rem;">', unsafe_allow_html=True)
-            st.subheader("Top evidence retrieved")
-            for item in analysis.top_evidence:
+            st.subheader("Why these songs were chosen")
+            st.caption(f"Parsed profile: {analysis.profile.name}")
+            for match in analysis.top_matches:
                 with st.container(border=True):
-                    st.caption(item.source.replace("_", " ").title())
-                    st.write(item.text)
+                    st.caption(f"{match.song.artist} | score {match.score:.2f}")
+                    st.write(match.song.title)
+                    st.write("; ".join(match.reasons))
             st.markdown("</div>", unsafe_allow_html=True)
 
         with reliability_tab:
@@ -442,6 +320,9 @@ def main() -> None:
                 st.write(f"{check_name}: {'pass' if passed else 'fail'}")
             if analysis.warnings:
                 st.warning(" ".join(analysis.warnings))
+            st.markdown("**Playlist notes**")
+            for point in analysis.talking_points:
+                st.write(f"- {point}")
             st.markdown("</div>", unsafe_allow_html=True)
 
 

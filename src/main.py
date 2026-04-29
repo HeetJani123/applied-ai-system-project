@@ -1,82 +1,52 @@
-"""Command line runner for the Job Application Copilot."""
+"""Command line runner for the music recommender extension."""
 
 from __future__ import annotations
 
 import logging
 from textwrap import dedent
 
-from src.recommender import analyze_application, format_analysis
+from src.recommender import analyze_listening_profile, format_analysis
 
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
 
 
-def print_analysis(label: str, resume_text: str, job_description: str, company_notes: str | None = None) -> None:
+def print_analysis(label: str, profile_text: str) -> None:
     print(f"\n=== {label} ===\n")
-    analysis = analyze_application(resume_text, job_description, company_notes)
+    analysis = analyze_listening_profile(profile_text)
     print(format_analysis(analysis))
 
 
 def main() -> None:
     scenarios = [
         (
-            "Software Engineer",
+            "High-Energy Pop",
             dedent(
                 """
-                Built Python APIs for internal tools.
-                Wrote automated tests for backend services.
-                Collaborated with product and design teams to ship features.
+                Bright pop for a workout with happy hooks, fast tempo, and strong energy.
                 """
             ).strip(),
-            dedent(
-                """
-                Backend Engineer
-
-                We are looking for a backend engineer with Python, FastAPI, and test automation experience.
-                The role values clear communication and reliable delivery.
-                """
-            ).strip(),
-            "We value collaboration, reliable delivery, and continuous learning.",
         ),
         (
-            "Marketing Analyst",
+            "Chill Lofi",
             dedent(
                 """
-                Created weekly campaign reports in Excel and dashboards.
-                Presented findings to stakeholders and marketing leads.
-                Improved reporting workflows with better organization.
+                Chill lofi focus music for studying late at night with soft, acoustic textures.
                 """
             ).strip(),
-            dedent(
-                """
-                Marketing Analyst
-
-                Looking for a candidate with analytics, reporting, dashboards, and stakeholder communication skills.
-                """
-            ).strip(),
-            None,
         ),
         (
-            "Project Coordinator",
+            "Deep Intense Rock",
             dedent(
                 """
-                Tutored students, tracked schedules, and coordinated group projects.
-                Delivered presentations and managed deadlines across multiple tasks.
+                Deep intense rock with driving guitars, powerful energy, and a heavy sound.
                 """
             ).strip(),
-            dedent(
-                """
-                Project Coordinator
-
-                This role needs organization, scheduling, communication, and leadership.
-                """
-            ).strip(),
-            "The team is collaborative and values clear communication.",
         ),
     ]
 
-    for label, resume_text, job_description, company_notes in scenarios:
-        print_analysis(label, resume_text, job_description, company_notes)
+    for label, profile_text in scenarios:
+        print_analysis(label, profile_text)
 
 
 if __name__ == "__main__":

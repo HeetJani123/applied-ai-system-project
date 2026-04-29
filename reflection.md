@@ -1,8 +1,9 @@
 # Reflection
 
-- High-Energy Pop vs. Chill Lofi: the pop profile favored "Sunrise City" and other upbeat tracks, while the lofi profile shifted toward "Library Rain" and "Midnight Coding" because both genre and mood matched better.
-- High-Energy Pop vs. Deep Intense Rock: the pop profile stayed around bright pop songs, but the rock profile moved to "Storm Runner" because the genre and mood both lined up with intense, high-energy music.
-- High-Energy Pop vs. Conflicting Energy-Sad: both profiles still liked energetic songs, but the conflicting profile gave more mixed results because the mood preference did not fully agree with the high-energy setting.
-- Chill Lofi vs. Deep Intense Rock: these two profiles behaved almost like opposites. The lofi profile preferred calm, slower songs, while the rock profile preferred loud, fast songs with much higher energy.
-- Chill Lofi vs. Conflicting Energy-Sad: the lofi profile wanted low-energy, relaxed music, but the conflicting profile still pushed energetic songs upward because energy had a large effect on the score.
-- Deep Intense Rock vs. Conflicting Energy-Sad: both profiles liked high energy, but the rock profile clearly preferred rock songs, while the conflicting profile sometimes ranked pop songs high just because they were close to the target energy.
+The strongest result was how clearly the recommender separated the three main listening vibes. The pop profile consistently favored bright songs like "Sunrise City" and "Rooftop Lights," while the lofi profile shifted toward "Library Rain" and "Midnight Coding" because genre, mood, and acoustic texture lined up together.
+
+The rock profile behaved differently again. "Storm Runner" kept rising because the higher energy and heavier genre matched the profile in more than one way, which showed that the scoring rule was not just following genre labels. That made the recommendations feel more believable than a single-feature sort.
+
+The biggest surprise was how much the texture hint mattered for the chill profile. Once the parser recognized words like "acoustic" and "studying," it pushed softer songs higher and made the shortlist feel closer to a real playlist suggestion. That was a good example of the project extending beyond the original recommender rather than just ranking songs.
+
+The main limitation is still the catalog size. A tiny set of songs means the system can only show a narrow slice of styles, so diversity checks are important. If I extended this again, I would add more songs and learn the weights from feedback instead of tuning them by hand.
