@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import logging
+from html import escape
 from textwrap import dedent
+from urllib.parse import quote_plus
 
 import streamlit as st
 
@@ -203,10 +205,74 @@ def inject_styles() -> None:
             background: rgba(123, 232, 199, 0.13) !important;
             border-color: rgba(123, 232, 199, 0.25) !important;
         }
+
+        .song-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.55rem;
+            margin: 0.35rem 0;
+        }
+
+        .song-meta {
+            min-width: 0;
+        }
+
+        .song-meta strong {
+            display: block;
+            line-height: 1.2;
+            color: var(--text);
+        }
+
+        .song-meta span {
+            display: block;
+            color: var(--muted);
+            font-size: 0.82rem;
+            line-height: 1.25;
+        }
+
+        .play-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: rgba(123, 232, 199, 0.14);
+            text-decoration: none;
+            font-size: 0.8rem;
+            line-height: 1;
+        }
         </style>
         """,
         unsafe_allow_html=True,
     )
+
+
+def build_song_play_url(title: str, artist: str) -> str:
+    query = quote_plus(f"{title} {artist} official audio")
+    return f"https://www.youtube.com/results?search_query={query}"
+
+
+def render_song_with_play(title: str, artist: str, meta: str, play_url: str, sidebar: bool = False) -> None:
+    safe_title = escape(title)
+    safe_artist = escape(artist)
+    safe_meta = escape(meta)
+    safe_play_url = escape(play_url, quote=True)
+    block = f"""
+    <div class="song-row">
+      <div class="song-meta">
+        <strong>{safe_title}</strong>
+        <span>{safe_artist} • {safe_meta}</span>
+      </div>
+      <a class="play-pill" href="{safe_play_url}" target="_blank" rel="noopener noreferrer" title="Find playable audio">▶</a>
+    </div>
+    """
+    if sidebar:
+        st.sidebar.markdown(block, unsafe_allow_html=True)
+    else:
+        st.markdown(block, unsafe_allow_html=True)
 
 
 def load_sample(name: str) -> None:
@@ -292,8 +358,14 @@ def main() -> None:
                 for song_id, score in results:
                     song = next((s for s in songs_df if int(s.id) == int(song_id)), None)
                     if song:
-                        st.sidebar.write(f"🎵 **{song.title}** ({score:.2f})")
-                        st.sidebar.caption(f"{song.artist} • {song.genre}")
+                        play_url = build_song_play_url(song.title, song.artist)
+                        render_song_with_play(
+                            title=f"{song.title} ({score:.2f})",
+                            artist=song.artist,
+                            meta=song.genre,
+                            play_url=play_url,
+                            sidebar=True,
+                        )
             else:
                 st.sidebar.info("No songs found. Try different keywords.")
     
@@ -306,8 +378,14 @@ def main() -> None:
                 for song_id in results:
                     song = next((s for s in songs_df if int(s.id) == int(song_id)), None)
                     if song:
-                        st.sidebar.write(f"🎵 {song.title}")
-                        st.sidebar.caption(f"{song.artist} • {song.mood}")
+                        play_url = build_song_play_url(song.title, song.artist)
+                        render_song_with_play(
+                            title=song.title,
+                            artist=song.artist,
+                            meta=song.mood,
+                            play_url=play_url,
+                            sidebar=True,
+                        )
             else:
                 st.sidebar.info(f"No {genre_input} songs found.")
     
@@ -320,8 +398,14 @@ def main() -> None:
                 for song_id in results:
                     song = next((s for s in songs_df if int(s.id) == int(song_id)), None)
                     if song:
-                        st.sidebar.write(f"🎵 {song.title}")
-                        st.sidebar.caption(f"{song.artist} • {song.genre}")
+                        play_url = build_song_play_url(song.title, song.artist)
+                        render_song_with_play(
+                            title=song.title,
+                            artist=song.artist,
+                            meta=song.genre,
+                            play_url=play_url,
+                            sidebar=True,
+                        )
             else:
                 st.sidebar.info(f"No {mood_input} songs found.")
     
@@ -367,7 +451,14 @@ def main() -> None:
             st.markdown(f"**Summary**  \n{analysis.summary}")
             st.markdown("**Recommended songs**")
             for match in analysis.top_matches:
-                st.markdown(f"- {match.song.title} by {match.song.artist} ({match.song.genre}, {match.song.mood})")
+                play_url = build_song_play_url(match.song.title, match.song.artist)
+                render_song_with_play(
+                    title=match.song.title,
+                    artist=match.song.artist,
+                    meta=f"{match.song.genre}, {match.song.mood}",
+                    play_url=play_url,
+                    sidebar=False,
+                )
             st.markdown("</div>", unsafe_allow_html=True)
 
         with evidence_tab:
