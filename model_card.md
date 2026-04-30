@@ -1,5 +1,9 @@
 # Model Card: Music Recommender+
 
+## Demo Video
+
+[Loom walkthrough](https://www.loom.com/share/d50f6c4872d54f22bbc4665234ae0a86)
+
 ## 1. Model Name
 
 VibeFinder 2.0

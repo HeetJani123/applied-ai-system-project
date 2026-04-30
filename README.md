@@ -1,5 +1,9 @@
 # Music Recommender+
 
+## Demo Video
+
+[Loom walkthrough](https://www.loom.com/share/d50f6c4872d54f22bbc4665234ae0a86)
+
 ## Original Project
 
 The original project was the module 3 music recommender system. It ranked songs using simple features like genre, mood, and energy.
@@ -17,6 +21,9 @@ Why this matters: small recommender projects are useful for showing how AI syste
 - **RAG (Retrieval-Augmented Generation)**: Semantic search over song metadata using TF-IDF, allowing users to search songs by natural language descriptions, genre, or mood.
 - **Explainable ranking**: Each recommendation includes a breakdown of which factors matched (genre +2.0, mood +1.5, energy +2.5, etc.).
 - **Coverage & diversity checks**: The system ensures recommendations cover the inferred preferences and don't repeat the same artists/genres.
+ - **Flexible retrieval & fuzzy search**: The RAG search uses TF‑IDF with n‑grams and includes a fuzzy/token-overlap fallback so queries tolerate typos and partial keywords.
+ - **Interactive play buttons**: Small, compact play links in the UI open a YouTube search for the selected song (placeholder preview behavior until explicit preview URLs are available).
+ - **Expanded catalog**: The song dataset has been expanded to ~50 items to improve variety for retrieval and ranking.
 
 ## System Design
 
@@ -77,6 +84,7 @@ The Streamlit UI (step 4 above) includes:
     - **Semantic Query**: Type a description like "upbeat pop for running" to find songs by meaning
     - **Genre**: Search by genre (pop, lofi, rock, etc.)
     - **Mood**: Search by mood (happy, chill, intense, etc.)
+    - Notes: The RAG search is a retrieval layer used in the UI sidebar to help users find songs; the main recommendation pipeline still relies on the vibe parser + explainable scorer. The search is tolerant of misspellings and partial keywords.
 - **Playlist tab**: See recommended songs with scores
 - **Evidence tab**: View why each song was chosen (factors that matched)
 - **Reliability tab**: Check system confidence and diversity of results
@@ -143,6 +151,15 @@ Reasons: genre match, mood match, energy closeness
 - The app logs key steps for loading, parsing, scoring, and evaluation.
 - Coverage and diversity scores make it easier to explain why the shortlist looks good.
 - Human review is still useful because a tiny catalog can overfit to a few obvious matches.
+
+## Rubric mapping (what's implemented)
+
+- RAG Enhancement: Implemented (TF‑IDF over metadata + fuzzy fallback) — used for sidebar search. (+2 for a lightweight RAG)
+- Agentic Workflow: Partial — the code uses a plan-act-check `MusicRecommender` class, but it is not a full observable agent with tool calls. (partial credit possible)
+- Fine‑Tuning / Specialization: Not implemented — no model fine-tuning or synthetic training was performed.
+- Test Harness / Evaluation Script: Basic — `pytest` tests are present and there is a short `test_rag_simple.py` smoke script; a full benchmark harness can be added.
+
+If you want me to prepare a short evaluation harness that runs a fixed set of inputs and prints an aggregated pass/fail summary, I can add that next.
 
 ## Reflection and Ethics (Student Voice)
 
